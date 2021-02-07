@@ -1,0 +1,45 @@
+---
+title: "Week 1 and 2 Reflections"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+#
+**Session 1**
+
+This Week’s Reflection Prompt
+
+*What is a neighborhood? How should neighborhoods be defined? Why might neighborhoods be important units of analysis for city planners and urbanists?*
+
+*What characteristics make a neighborhood great?* 
+
+I view neighborhoods as two things: affinity groups and the largest scale of place a human can visibly comprehend. Regardless of whether a conversation is happening with an urban planner or someone with no clue of what planning is, they will probably share a strong affinity for where they are from. As an out-of-state student, I would note that this affinity is stronger in students from Chicagoland, who strongly emphasize the differences between the City of Chicago and its suburbs, and the neighborhoods within it. Both friendships and barriers can be made based on someone’s neighborhood. These neighborhoods are relatively small geographic areas with overlapping characteristics that unite (or divide) a group of people. Neighborhoods can sometimes be strictly delineated by train tracks, freeways, or waterways. But other times, it can be more fluid, such as an arterial street. The historical aspects of strictly delineating neighborhoods through the practice of redlining cannot be ignored. The impact of those decisions continue to inflict harm on millions of people today. 
+
+Neighborhoods matter, especially if we are trying to relay data and findings to people on the ground. Consider this: would a normal individual care more about the crime rate in Cook County, or a more pertinent description of certain neighborhoods that tell a better story? Would the average person look for average rents in Cook County or in a particular neighborhood in the area they are looking to settle in?  
+
+The strength of analyzing neighborhood lies in our attempt to define what makes a neighborhood great. Neighborhoods are so different from one another as they present a sense of choice for people with different preferences. Some people might prefer dense mixed-use areas near transit-oriented development. Others might prefer places far from access via public transportation, such as a farm. The characteristics that make neighborhoods great vary within and between regions across the country and around the world. In the Southwest, for example, we might value access to green space around the year. In the colder regions across the country, the value of a garage to protect your car from snow is hard to overstate. However, there are some characteristics that may be universal in appeal. People in cities and suburbs would likely agree that well-lit sidewalks for safety is important to them. The variety of neighborhood types across the country demonstrate the “free-market” equivalent of living preferences. There are options and varieties to choose from and city planners and urbanists each offer their unique set of preferences, biases, and maybe even agendas when assessing what makes a neighborhood great.   
+
+
+**Session 3**
+
+This Week’s Reflection Prompt
+
+*What are the challenges associated with representing neighborhoods quantitatively?*
+
+*What are the benefits of using quantitative data to represent neighborhoods?*
+
+*What can we learn? What is likely to be missed?*
+
+The way we represent and measure what matters in a neighborhood has changed drastically since the middle of the 20th century. In the 1950s, a neighborhood was looked at from a top-down approach tool for social control and investment of capital. Any measure of improvement was determined to be feasible in some sort of cost-benefit analysis. Although some of this may still hold true today, new elements of understanding and measuring the greatness of a neighborhood have been introduced. As this class strongly emphasizes, the importance of storytelling and livelihoods has gained more prominence when understanding a neighborhood. But livelihoods can be hard stories to tell with quantitative data. 
+
+We are able to gain some sort of understanding for livelihoods through data by looking at, for example, crime rates as a proxy for safety, employment rates and median household income as a proxy for economic wellbeing, etc. It’s important to pay attention to the scale at which the story is being told. San Diego is (in)famous for boasting it is “America’s finest city”. Although it may be true for those living in the coastal neighborhoods on the north side, this is far from the truth for those suffering from shipbuilder and military pollution in the south side. Air quality is one of those indicators that merit observing at a neighborhood level. 
+In this world, quantitative data tends to be a better tool for impacting decision-making by those in positions of power. If there is no data to serve as evidence for claims, then leaders tend to refuse to act. Qualitative data and anecdotes can only go so far. Evidence is almost always conflated with quantitative measurements. But we can still prove the anecdotes and qualitative data to be true by using quantitative data as well. In fact, there is a particular charm in using qualitative and quantitative data seamlessly in impacting decision making. 
+
+As I noted in my previous reflection, many planners, urbanists, and policymakers come with an agenda or set of priorities for change. The most effective changemakers are apt in filling the shortcomings of quantitative data with the power of qualitative data and vice versa. 
+
+##
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
