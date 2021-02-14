@@ -1,0 +1,43 @@
+---
+title: "Session 5 Reflection"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Session 5
+
+**This Week’s Reflection Prompt**
+
+*How is working with data via a command line interface different from using a graphical user interface?*
+
+*How do we balance reproducibility of our analysis with accessibility of the analytical tools?*
+
+*What’s challenging for you right now regarding learning and using R? What are the “a-ha” moments that you’re celebrating?*
+
+
+I really appreciate that R makes you think of what you want to visualize before producing any graphics, unlike GIS and Excel which allow you to change chart elements until something is produced that makes sense. It makes me feel like I need to use R with a sense of purpose and planning ahead to imagine what I want to see and make it happen.
+
+Challenging: The most evident challenge I am going through is having to memorize the commands and be able to recall them at the appropriate time. For example, when am I supposed to use quotation marks and when are they not necessary? When am I supposed to use two equal signs or one? I am in the process of writing down key commands and examples of code that I can use as a template for my own research.
+
+For example: 
+
+```{r}
+ggplot(data = ozs %>% filter(state %in% c("Illinois", "Indiana", "Iowa", "Kansas", "Michigan", "Minnesota", "Missouri", "Nebraska", "North Dakota", "Ohio", "South Dakota", "Wisconsin")), aes(x=medhhincome2014_tract, fill = Designated))+
+   geom_histogram(binwidth = 2500)+
+  labs(title = "Eligible Tract Income Distribution", x="Median Household Income ($)", y= "Tracts")+
+  theme_minimal()+
+  facet_wrap(~ state, scales = "free")
+```
+
+
+Using this example code from the lab, it's not difficult to imagine changing this code to compare homeownership rates in the Latino population in states of interest such as Idaho, Kansas, or Iowa. 
+
+A-ha moments: Although I’m having difficulty with remembering all the commands, they all make sense when reading them. Comparing this to a language, I understand a good amount of grammar, but I just need to get better with punctuation and expand my vocabulary. With the class labs, I continuously make connections to how I would use this code for capstone data analysis. Soon, I’ll feel ready to begin using Census data to analyze and visualize the data I’m looking for. 
+
+
+
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
