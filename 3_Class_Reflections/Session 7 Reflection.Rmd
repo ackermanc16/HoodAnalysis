@@ -1,0 +1,39 @@
+---
+title: "R Notebook"
+Author: Christopher Ackerman-Avila
+output: html_notebook
+
+** Session 7 ** 
+
+*This Week’s Reflection Prompt*
+
+* What types of questions do you have about the structure and function of neighborhoods? *
+
+* What forms of analysis do you see as being useful to your own work? *
+
+I want to understand inequalities within the Latino community within a national and regional context. Neighborhoods are helpful for understanding the regional context of inequalities in our community. Different neighborhoods within a region, even those within the same race or ethnicity can have varying levels of quality of life. To understand how things change within the same ethnicity but across freeways or highways, in proximity to certain land uses, or community assets, it is essential to understand how the neighborhood functions. 
+Looking at nationwide inequalities are better understood at a regional level. Regional approaches even vary between megaregions and microregions. Neighborhoods wouldn’t be a good level of analysis for such macro approaches. 
+
+
+*What types of analytic approaches do you see as being useful to your own work?*
+
+My analytic approach is difficult because it only looks at a specific ethnicity and understand how place might impact quality of life indicators. Whether those indicators vary within a region or between many regions is a question I’m interested in understanding. I know very well that there are extreme inequalities within the Latino community in San Diego. Certain neighborhoods, particularly those in the northern coasts, have the wealthiest Latinos. The Latinos furthest south, adjacent to the border, are the most impoverished. The same patterns emerge for other measurements of quality of life. How are these patterns similar or different in other regions across the country? Are the inequalities lesser or greater in certain parts of the country? 
+
+* How can analysis on R with ggplot2 and other tools balance for other variables? For example, maintaining all things equal, where is Latinx inequality greatest? *  
+
+
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
