@@ -1,0 +1,50 @@
+---
+title: "Session 9 and 11 Reflections"
+output: html_notebook
+---
+
+*Session 9*
+
+This Week’s Reflection Prompt
+Open Reflection
+
+I want to use this reflection to discuss my project proposal thought process more informally, particularly issues of scope, geographical scale, and indicators of interest. 
+
+I continue to look for the most effective ways to compare urban and rural phenomena and inequalities occurring within their jurisdictions. I think I will have an easier time observing inequalities within the Latino community in larger metropolitan areas where larger populations reside, and it is easier to discern differences and similarities. But how can I most effectively understand rural inequalities where all populations may suffer from lower incomes, lower homeownership rates, and other indicators? At that point, it is not effective to compare Latino rates to that of their White counterparts nor that of the general population in a county. But is it appropriate to compare it to the national or state averages? The decision is mostly between determining empirical or normative gaps that do or do not carry value judgements. Even comparing Latino homeownership rates at the national level to those of local and sub-local levels carry limitations. Latino homeownership rates stood at approximately 47% in recent years, far below the 60-70% levels of White people. Comparing Latino homeownership to that of the state or county may also be inadequate in northeastern regions where everyone’s homeownership is low in places like New York City. 
+
+Beyond geographical scale, I am concerned that the scope of my project may be too large in an attempt to capture a better image of Latino circumstances across the country. By investigating inequalities both between and within the Latinx ethnicity, I am greatly expanding the scope of this project. This means I want to understand Latino livelihoods in San Diego as it compares to southwestern Kansas and also between Latinos in the South Bay and the northern coastal neighborhoods. I stated in my project proposal that one of the goals for my study is to uncover just how heterogenous the Hispanic ethnicity is, but that itself is a challenge because of the little research conducted on the topic. There is very little research, for example, about the various affluent Latino communities scattered across the country that are often highly educated, wealthy, healthy, and not impacted by debates on immigration and race. There is also a hidden struggle of Latinos in places with relatively small political and economic currency in places like the heartland, the Midwest, and the Northeast because national narratives, organizers, and lawmakers focus on the southwest. 
+
+A related concern is the issue of primary indicators of interest. As of now, I have decided to look at topics of nativity status, homeownership rates, educational attainment, employment and income, and health insurance coverage, which may or may not be indicators that alter policy deliberations. I have considered creating an index of a larger variety of indicators and that may or may not be feasible. A potential index could outline where social, economic, and political organizing is most ripe and could benefit from greater attention and commitment of resources. For example, it could reveal that Latinos fare well economically in places like Kansas and Idaho and would benefit from political organizing or that Latinos fare well politically in places like the Northeast but could benefit from targeted economic assistance. 
+I will continue thinking about the issues of scope, geographic scale, and indicators of interest and continue debating the possibility or alternatives to creating an index. 
+
+
+*Session 11*
+
+This Week’s Reflection Prompt
+
+How do the differences between forecasts and projections matter?
+What are the implications of these differences for your own areas of focus or study?
+Based upon your area of study or specialization, what types of information help you to assess the accuracy or certainty of a forecast? 
+
+Last week, I was pondering on the possibility of creating an index for my final project deliverable that could determine where Latinos fare better or worse in the social, political, and economic arenas. The strongest index, however, may benefit from incorporating the element of time into them. 
+We learned in class that forecasts help define likely scenarios for the future based on projections and that projections are conditional statements, largely just technical exercises. Perhaps indices that consider how the landscape is shifting for better or worse in Latino communities would be a beneficial tool for the community, especially for Latinos considering the best places to settle for upward mobility. 
+
+Consider this example of homeownership. The studies I have seen look at Latino homeownership at one moment in time, but do not demonstrate where Latinas are increasingly becoming homeowners or where they may be struggling to buy a home and generate wealth. By looking at homeownership rates or homeownership gaps and how they have shifted since the last decades of the 20th century, we can learn about where things are getting better or worse for Latinos and perhaps identify similarities in the places where this is occurring. We know Latinos have relatively high levels of homeownership in southern Texas, particularly in El Paso and Nuevo Laredo, but has this always been the case or is this because of state or local policies? By projecting topics such as homeownership rates, health insurance coverage, educational attainment, nativity status, and other areas of interest, we can better understand how prevalent an issue may become in a city, county, state, or region. 
+
+How can forecasts and projections be incorporated into indices to demonstrate the past, present, and future of quality of life and upward (or downward) mobility in Latino communities? Latinos will be an increasingly large population and places should be rewarded or penalized for impacting livelihoods, quality of life, and mobility. Latinos should also know where the best places for them to settle are. Where do Dominicans fare best? Where are Venezuelan refugees most welcomed? Where places should undocumented immigrants avoid? These are questions from the human perspective. For the organizer and lawmaker, questions are different. Would my state or city strongly benefit from discounted or free community college for first generation immigrants? Should our region be considering Latino outreach in languages beside Spanish for central American refugees? Is there a capacity to create or strengthen a Hispanic Chamber of Commerce in southwestern Kansas? The questions are endless and forecasts may decide whether these questions will remain salient for years to come and whether long-term investments in our community are suitable from an economic and political perspective.   
+ 
+
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
