@@ -1,0 +1,35 @@
+---
+title: "R Notebook"
+Author: Christopher Ackerman-Avila
+output: html_notebook
+
+**Session 13**
+
+*This Week’s Reflection Prompt*
+
+Why, in your opinion, does segregation remain an enduring characteristic for most American cities, despite efforts to address it?
+
+The physical separation of people may be more durable, or stickier, than some attitudes. People may change their perceptions of movements like BLM as we saw in the summer, but it did not mean that communities became more physically integrated. Households are not moving at the rates they were in the decades following World War II and white flight. Even if people are moving in ways that decrease segregation, it is occurring at a slower rate than it would have decades ago in the formative years of suburban settlement. But the initial foundational development patterns that were fostered by New Deal housing policies are very hard to reverse because people’s sense of community and home is engraved to them as generations pass. Segregation may no longer be overwhelmingly due to malicious attitudes, it may be a residue that is really hard to scrub off. It may also be unrealistic to rub off, and an improved end goal would be to create the same opportunity structure and quality of life in communities of color, especially redlined communities, than that of all other white communities that have benefitted from federal investment and subsidies. 
+
+How can visualization of segregation (and its consequences) make a difference?
+
+What can segregation measures capture well? What aspects of segregation are more challenging to measure? 
+
+Measurements of segregation can be eye-popping in capturing the magnitude of separation based on race. But it cannot capture the complexities of race and income or wealth within these communities. Perhaps a reader may assume that segregated neighborhoods mean affluent White neighborhoods and poor communities of color. Although this may often be the case, it overlooks communities of color that may be thriving without the presence of White folks or predominantly white neighborhoods that are really struggling. 
+A more difficult phenomenon to understand through data and visualizations is that of choice, particularly how many people of color or white people, are choosing to live where they do because of their preference, as opposed to by force or lack of choice. Class discussion reminded me of a disagreement several students of color had with Professor Pendall in the effort to reverse segregation. Students of color noted that integration may not necessarily be the end goal that we are looking for. It does not take long to learn about incidents in which disgruntled white neighbors call the police on people of color trying to get into their own homes, listening to music too loudly, walking on the sidewalk with a hoodie and a bag of Skittles, or any other trivial action. For some, living there can be deadly. The goal should not be to integrate to where white people live, nor should it be to give access to live in the suburbs. In her book, Blaming the Poor, Susan Greenbaum does a good job of describing how modern housing programs trying to integrate low-income households into middle- and upper-class neighborhoods may actually increase a household’s sense of isolation, distance them from support networks they may have established in their previous communities, and engulfs them by hostile neighbors that view them as a legal burden or obligation. Instead, the measurement should be choice and self-determination, although it is a difficult feeling to understand. Choice and self-determination in housing looks like people of color having the means to create the neighborhoods they want to see. The support networks, amenities, and access to employment and educational opportunity are some of the main factors that need to be present. But the ability to quantitatively measure a community’s perception of their capacity to shape their neighborhoods is something that will continue to be difficult. 
+
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
