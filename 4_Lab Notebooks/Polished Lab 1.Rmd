@@ -1,0 +1,128 @@
+---
+title: "Polished Lab Notebook No. 1"
+author: "Christopher Ackerman-Avila"
+date: "3/22/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, include=FALSE}
+library(tidyverse)
+library(dplyr)
+library(readxl)
+ozs<-read_excel("data/urbaninstitute_tractlevelozanalysis_update1242018.xlsx")
+```
+
+```{r, echo=FALSE, include=FALSE}
+ozs<-ozs %>% mutate(
+  Designated = ifelse(is.na(Designated), 0, Designated)
+)
+```
+
+# Opportunity Zones
+
+*In 2017, the Tax Cuts and Jobs Act was signed and created Opportnity Zones as a means to spur investments in economically disadvantaged Census tracts across the country. Although the mechanism has been subject to much critique, it has altered the landscape of investing in low-income communities. Below is a demographic analysis of Opportunity Zones in places and demographics of interest. *
+
+```{r, echo=FALSE}
+ggplot(data=ozs, aes(x=medhhincome2014_tract, fill = Designated))+
+  geom_histogram(binwidth = 2500)+
+  labs(title = "Eligible Tract Income Distribution", x="Median Household Income ($)", y= "Tracts")+
+  theme_minimal()
+```
+```{r, echo=FALSE}
+ozs %>% 
+  filter(Designated == 1) %>% 
+  group_by(Metro, Micro) %>% 
+  summarise(Income = mean(medhhincome2014_tract, na.rm=TRUE), Poverty = mean(PovertyRate, na.rm=TRUE), Hispanic = mean(pctHispanic, na.rm=TRUE))
+```
+# Median Household Income
+
+*Opportunity Zones look very different from each other in Metropolitan and Micropolitan areas. The median household income in Metros is $45,170 while the equivalent in Micros is $42,127. Although income may be higher, the poverty rate is also higher in Metros (21.6%) compared to Micros (19.7%). Of particular interest, the Hispanic population is almost threefold larger in Metros (23.5%) than in Micros (8.9%). *
+```{r, echo=FALSE}
+ggplot(data=ozs, aes(x=medhhincome2014_tract, y=BAorhigher, color=Designated))+geom_point()
+```
+# Education
+
+*There is also a positive relationship between median household income, educational attainment, and Opportunity Zone designation. Non-designated tracts (in dark blue) have higher median household incomes compared to tracts with a designation.*
+```{r}
+ozs %>% 
+  group_by(Designated, Metro) %>% 
+  summarise(College = mean(BAorhigher, na.rm=TRUE))
+```
+*Average college educational attainment levels in designated Metro tracts is 22% while tracts that are not designated are slightly lower at 18%. There is a very distinct difference between college attainment in rural and urban areas, a well-known trend throughout the country.*
+
+```{r, echo+FALSE}
+ozs %>% mutate(Metro = ifelse(Metro == 1, "Metropolitan", NA),
+               Micro = ifelse(Micro == 1, "Micropolitan", NA),
+               NoCBSAType = ifelse(NoCBSAType == 1, "Non CBSA", NA),
+               Metro_Type = case_when(Metro == "Metropolitan" ~ "Metropolitan",
+                                      Micro == "Micropolitan" ~ "Micropolitan",
+                                      NoCBSAType == "Non CBSA" ~ "Non CBSA")) %>% 
+  ggplot(aes(x=PovertyRate, fill=Designated))+geom_histogram(alpha=.6)+
+  facet_wrap(~Metro_Type, scales = "free")
+```
+```{r}
+ozs %>% 
+  filter(Designated == 1) %>% 
+  group_by(state) %>%
+  summarise(
+    Metropolitan = mean(PovertyRate[Metro == 1], na.rm=TRUE),
+    Micropolitan = mean(PovertyRate[Micro == 1], na.rm=TRUE),
+    Non_CBSA = mean(PovertyRate[NoCBSAType == 1], na.rm=TRUE))
+```
+
+# Metro vs Micro
+
+*Not only can we see that there are many more designated tracts in metropolitan areas, but it is also evident that there is higher levels of poverty in Metros, too. This varies between states, however. Different states have varying levels of Metropolitan and Micropolitan levels of poverty. In some places, metros fare better and vice versa. *
+
+```{r}
+ozs %>% 
+  group_by(Designated) %>% 
+  summarise(
+    Tracts = n(),
+    White = mean(pctwhitealone, na.rm=TRUE),
+    Black = mean(pctblackalone, na.rm=TRUE),
+    Hispanic = mean(pctHispanic, na.rm=TRUE),
+    AAPI = mean(pctAAPIalone, na.rm=TRUE))
+```
+# People of Color
+
+*Designated Opportunity Zone tracts have  higher proportion of people of color than non-designated tracts. Designated tracts see their share of White people decrease from 55% to 39.5% while their share of Back and Latino people increase from 17% to 24% and 20% to 29%, respectively. This pattern demonstrates that communities of color are set to see more investment with the Opportunity Zones program.But this also demonstrates that communities of color are more socioeconomically disadvantaged than White communities. *
+
+```{r}
+ozs %>% 
+  select(state, pctHispanic, pctwhitealone, pctblackalone, Micro) %>% 
+  group_by(state) %>%
+  filter(Micro == "1", state %in% c("California", "Idaho", "Kansas", "Arizona", "Alabama", "Mississippi")) %>% 
+  summarise(
+    Rural_White = mean(pctwhitealone[Micro == 1], na.rm=TRUE),
+    Rural_Latinos = mean(pctHispanic[Micro == 1], na.rm=TRUE),
+    Rural_Black = mean(pctblackalone[Micro == 1]))
+```
+# The South, West, and Heartland
+
+*Upon a deeper dive, however, it is interesting to see Designated Census tracts with varying levels of rural poverty on a regional basis. In Alabama and Mississippi, for example, there are very high levels of rural Black residents with 27% and 49%, respectively. In Arizona and California, there are somewhat high levels of rural Latinos with 27.8% and 16.7% respectively. It is surprising to find that Idaho and Kansas both have higher levels of rural Latino residents than California, with 17% and 18.7%, respectively. What is going on with Latinos in rural states like Idaho and Kansas? *
+
+```{r}
+mean(ozs$PovertyRate[ozs$pctHispanic>.2 & ozs$Designated == 1], na.rm=TRUE)
+```
+```{r}
+mean(ozs$PovertyRate[ozs$Designated == 1], na.rm=TRUE)
+```
+```{r}
+mean(ozs$PovertyRate[ozs$pctHispanic>.5 & ozs$Designated == 1], na.rm=TRUE)
+```
+
+# Latino Poverty
+
+*The general poverty rate for designated Census tracts is 31.75%. However, when factoring in Census tracts with over 20% Hispanic population, that number increases further to 34.74%. Census tracts with above average Latino populations (the nationwide Latino population is 19%) have higher levels of poverty. Even worse, for designated Census tracts with Latino populations over 50%, the number jumps to a staggering 38.7% poverty rate.*
+
+*Studies show that Latinos are increasingly turning away from expensive coastal and gateway cities such as Los Angeles or New York and heading towards affordable rural areas in the South and Midwest. Although these places may be more affordable, they lead to more isolated livelihoods for newcomers as they may find it difficult to recieve the services and assistance resettlement requires. As Latinos turn to settling in Kansas, Idaho, the Dakotas, and other states, they may or may not struggle to increase their social mobility. *
+
+
+
