@@ -1,0 +1,32 @@
+---
+title: "Session 17 Reflection"
+author: "Christopher Ackerman-Avila"
+date: "3/23/2021"
+output: html_document
+---
+
+## This Week’s Reflection Questions
+
+*What does place opportunity mean to you? What makes a place more (or less) opportune? Are there some universal dimensions of place opportunity? Some that are more specific to certain population groups?*
+
+Opportunity can be described in emotional and abstract terms, but it is more difficult to pinpoint with concrete and tangible elements of life. Some might say that opportunity is defined by access to the American Dream or a full commitment to equity and equality. But for working class individuals, households, and communities, opportunity needs to be defined through something that will directly impact them. Geographies of opportunity, as a classmate termed it, can consist of factors broadly categorized as health, wealth, education, environment, employment, and safety. 
+
+*Health* Opportunity in health may mean having access to afordable health care through medical clinics, pharmacies, and health care. Part of being accessible is being available to people who may not speak English, people who do not have citizenship status, people with mobility limitations, and other demographics. This is closely related to environmental opportunity. 
+
+*Environemntal* Obstacles to environmental opportunity has been on the news lately. Children living in homes with contaminated lead water are condemned to a life of health and developmental issues. It may even lead to behavioral issues. All of this impacts school performance and, therefore, employment performance. Environmental opportunity is one way to ensure, or prevent, intergenerational wellbeing. 
+
+*Wealth* Another way to ensure intergenerational opportunity is through wealth accumulation. The ability to own a home with adequate community amenities (health opportunities) and in a clean environment is a major part of the American Dream. If home prices can appreciate, the wealth can be passed on to generations to come. Owning a safe, affordable, and happy home is part of what shapes opportunity. 
+
+*Education* American schools are immensely shaped by property taxes, and this only reproduces opportunity or lack thereof. If the quality of where you live determines the quality of where you study, there is little space to break free from that cycle. Providing educational opportunities, beginning in Kindergarten and continuing through community college education, can positively influence the lives of people that need it the most. 
+
+*Employment* Access to employment in terms of transit is only part of the problems. Employment opportunities mean having the ability to climb the ladder if you meet the qualifications, but many occupations in low-wage industries are dead ends that have no possibility for wage increases and make it difficult to escape living paycheck to paycheck. Sometimes people feel cornered into accepting harsh working conditions. 
+
+*Safety* Many people may take safety for granted, but it is a major reason for many Latin Americans making the journey to the United States. Freedom from extortion, gang violence, kidnappings, and murder is the first step to enjoying the other opportunities above. Unfortunately, not everyone in America lives in safe neighborhoods. Gun violence is a problem that is unique in magnitude to this country. 
+
+Each of these factors vary in how well they can be defined in concrete or abstract ways, and each measurement has its limitation. But these broad categories may be some of the universally accepted dimensions that make an opportunity-rich neighborhood. 
+
+These factors may also be uniquely tailored to some demographics. For example, undocumented immigrants throughout the country may benefit from these factors, but only if they are legally permitted to do so. Some sates may welcome undocumented immigrants into their health care system while others may do everything possible to prevent it. Putting it all into one map would be impossible to do, but creating opportunity maps directly for certain groups would be greatly beneficial.   
+
+
+*What types of practices support opportunity mapping? How can we use the outputs from opportunity mapping excercises for deliberation and policy decision-making?*
+
