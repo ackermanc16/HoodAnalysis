@@ -1,0 +1,272 @@
+---
+title: "Project Background"
+author: "Christopher Ackerman-Avila"
+date: "3/24/2021"
+output: html_document
+---
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(tidycensus)
+library(knitr)
+library(dplyr)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+rm(ca_pop, CCA, charges, chi, chi_2010, chi_trt, co, inc_add_chi, inc_add_chicago, inc_add_chicago_sf, incarceration, incarceration_full, trt, wide_table)
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+census_api_key("4d8d85bafe310bb13e1b7e4dcba8c65ae4c55ac1")
+```
+
+
+# Context and Background
+
+Latinos are no longer settling only in large gateway cities in the Southwest. Increasingly, they are venturing farther away into every corner of the country in cities big and small, especially in the Midwest and South. Where do Latinos encounter better opportunities, and where are they already succeeding most? The challenge to this research project is simultaneously analyzing the livelihoods of Latinos in big cities and small towns with varying characteristics at once. This project is shaping up to be a status report for Latinos across the country, an opportunity to visualize patterns and trends, and a space to pinpoint problems and the corresponding stakeholders to address them. 
+
+Stories of Latinos gaining control of all local elected offices in some rural towns (such as Wilder, Idaho) have made headlines, but so have other stories of invisible Latinos with non-existent political power (such as Yakima, Washington). As some towns see a growing number of Latino-owned businesses (such as in Ulysses, Kansas), others face obstacles that prevent them from achieving that goal.  
+
+Within the next decade, Latinos will be the majority of new homebuyers. Today, one-quarter of Latinos are uninsured. The number of states with at least 20% of its kindergarteners being Latino more than doubled from 8 to 17 between 2000 and 2012. Latinos are quietly becoming a large presence in many corners of the country. Not only do demographers not understand the dynamic and heterogenous Latino ethnicity, but Latinos ourselves do not have an adequate grasp. To avoid one size fits all solutions, the issues facing the Latino community must be delved into at a granular level. A Pew Research report that ranked characteristics for Latinos by nationality revealed that Central Americans are overwhelmingly socioeconomically disadvantaged while many South American nationalities were not. The data, however, was only presented in a table format without visualizations to determine geographic patterns. The Harvard University Cervantes Observatorio also releases a yearly report on topics such as population demographics, language proficiency, educational attainment, economic and socioeconomic trends (purchasing power, income and poverty, gender pay gap, home ownership, health insurance, and marriage), politics and represenation, internet use, media and publications in the Latino community. This data is also presented in a table format with very few visualizations. 
+
+# Methods and Approach
+*How are you analyzing the data? What precedents or work that others have done is helping to inform your approach?*
+
+*Creating the Dataset of Qualfiied Places*
+
+The first step is downloading ACS 5-year data from 2019 to determine Latino population for every place in every state using Census table B03003. Most studies look at the county level, but doing so overlooks outlying places with a large share or number of Latinos within counties with overall smaller numbers. Instead of loking at 3,141 counties (and equivalent), there are a total of 29,573 places (total observations) in this dataset. The number will be reduced shortly. 
+
+```{r, message=FALSE, warning=FALSE}
+Latino_place_2019 <- get_acs(geography = "place", table = "B03003", year = 2019, survey = "acs5", output = "wide")
+```
+
+Next, to determine the share of the Latino population in every place, a new column of data needs to be created dividing the Latino population by the total population. 
+```{r, message=FALSE, warning=FALSE}
+Latino_place_2019 %>% mutate(share_latino = B03003_003E/B03003_001E) %>% 
+  rename(pop_tot = B03003_001E, pop_white = B03003_002E, pop_lat = B03003_003E)
+```
+Most studies, including Pew Research reports, only observe counties with at least 1,000 Latinos. Following those steps, only places with at least 1,000 Latinos will be included. A total of 4,305 places (14.5% of total observations) have at least 1,000 Latinos.  
+
+```{r, message=FALSE, warning=FALSE}
+Latino_place_2019[Latino_place_2019$B03003_003E >= 1000,]
+```
+
+```{r, message=FALSE, warning=FALSE}
+Lat_place_2019 <- Latino_place_2019[Latino_place_2019$B03003_003E >= 1000,] %>% 
+  rename(pop_tot = B03003_001E, pop_lat = B03003_003E) %>% 
+  mutate(share_lat = pop_lat/pop_tot) 
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_place_2019 <- select(Lat_place_2019, -c(B03003_001M, B03003_002E, B03003_002M, B03003_003M))
+```
+
+```{r, echo=FALSE}
+final_lat_place <- separate(data = lat_place_2019, col = NAME, into = c("Place","State"), sep = ", ")
+```
+ 
+```{r, echo=FALSE}
+final_Lat_place <- subset(final_lat_place, State!="Puerto Rico")
+```
+ 
+ 
+Our final dataset "final_Lat_place" removes unecessary columns, separates the NAME column into the place and the state, and removes all observations in Puerto Rico. It includes a total of 4,104 places with 6 variables including the GEOID, place, state, total population, total Latino population, and percent Latino population. It's important to separate the NAME column into Place and State because the State and groups of states will serve as the foundation for categorizing each of the 4,104 places into sub-regions. 
+ 
+```{r}
+head(final_lat_place)
+```
+ 
+
+*Categorizing the Qualfiied Places*
+
+A 2002 report by Brookings categorized Latino settlement patterns into "established Latino metros, new Latino destinations, fast-growing Latino hubs, and small Latino places". Drawing on this categorization, this report will expand the categorization to account for different number and share of Latino population in places across the country. 
+
+To gather a representative sample of Latinos living across varying regions, places will be categrized based on number and share of Latinos. The categories will include high (over 25% of the population), medium (between 5% and 25%), and low (below 5% of the population) share of Hispanic population; large (over 100,000), medium (between 10,000 and 99,999), and small (less than 10,000) numbers of Hispanics.  
+
+```{r}
+hishare_hinumber <- final_Lat_place %>% 
+  filter(pop_lat > 100000 & share_lat > .25)
+
+hishare_mednumber <- final_Lat_place %>% 
+  filter(pop_lat > 10000 & pop_lat < 100000 & share_lat > .25)
+
+hi_share_lonumber <- final_Lat_place %>% 
+  filter(pop_lat < 10000 & share_lat > .25)
+
+medshare_hinumber <- final_Lat_place %>% 
+  filter(pop_lat > 100000 & share_lat > .05 & share_lat < .25)
+
+medshare_mednumber <- final_Lat_place %>% 
+  filter(pop_lat > 10000 & pop_lat < 100000 & share_lat > .05 & share_lat < .25)
+
+medshare_lonumber <- final_Lat_place %>% 
+  filter(pop_lat < 10000 & share_lat > .05 & share_lat < .25)
+
+loshare_hinumber <- final_Lat_place %>%
+  filter(pop_lat > 100000 & share_lat < .05)
+
+loshare_mednumber <- final_Lat_place %>% 
+  filter(pop_lat > 10000 & pop_lat < 100000 & share_lat < .05)
+
+loshare_lonumber <- final_Lat_place %>% 
+  filter(pop_lat < 10000 & share_lat < .05)
+```
+
+The following table details the breakdown by category:
+
+*Categorization by Place*
+
+|       |        |      | Number |      |
+|-------|--------|------|--------|------|
+|       |        | *High* | *Medium* | *Low*  |
+|       | *High*   | 49   | 540    | 1,187 |
+| **Share** | *Medium* | 6    | 236    | 1,861 |
+|       | *Low*    | 0    | 3      | 222  |
+
+# Data Sources
+*Where are these data coming from? What are each contributing? What are the specific indicators you are using from these data?*
+
+In addition to the Census data, IPUMS will serve as the other half of the foundation to this study. The following table neatly categorizes the codes, descriptions, select years available, and other notes or assumptions for every indicator of interest. PUMAs overlapping with the places of interest will be used for this data.  
+
+
+|                   IPUMS DATA                  |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|:---------------------------------------------:|:---------:|:-------------------------------------------------------------------------------------------------------------------------------------------------:|:--------:|:--------:|:--------:|:--------:|------------------------------------------------------------------------------------------------------------------------------|
+| Household                                     | Code      | Description                                                                                                                                       | 2009 ACS | 2014 ACS | 2019 ACS | Category | Notes/Assumptions                                                                                                            |
+| Geographic   Variables                        |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | REGION    | Region                                                                                                                                            | Y        | Y        | Y        |          |                                                                                                                              |
+|                                               | STATEFIP  | State FIPS Code                                                                                                                                   | Y        | Y        | Y        |          |                                                                                                                              |
+|                                               | COUNTYFIP | County FIPS Code                                                                                                                                  | Y        | Y        | Y        |          |                                                                                                                              |
+|                                               | CITYPOP   | City Population                                                                                                                                   | Y        | Y        | Y        |          |                                                                                                                              |
+| Economic   Characteristic Variables           |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | OWNERSHP  | Ownership of dwelling (tenure:   own or rent)                                                                                                     | Y        | Y        | Y        |          | What is the level of Latino homeownership in this place and how does it compare to the general population? A 2006 HUD report highlighted gaps (or lack thereof) in homeownership rates between Latinos and Whites across the country except for two metros in Texas. This indicator is limited because it does not assess quality of   housing. Previous IPUMS data asked about housing condition, but is no longer available.       |
+|                                               | HHINCOME  | Total household income                                                                                                                            | Y        | Y        | Y        |          | How does income for Latinos in this place compare to the general population and what patterns emerge?                                                                                                                              |
+|                                               | FOODSTMP  | Food stamp recipiency (yes or no and case count)                                                                                                | Y        | Y        | Y        |          | To what extent do Latino households rely on the government for food and nutrition? How does it compare to the general population?                                                                                                                              |
+| Dwelling   Characteristic Variables           |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | LINGISOL  | Lingusitic isolation (Percent speaking no English or not very well)                                                                             | Y        | Y        | Y        |          | Not all Latinos speak Spanish and this indicator does not provide details of the Mixteco or Quechua language which is common in southern Mexico, Central America, and parts of South America. The implications for language justice and accessibility is vital.                                                                    |
+|                                               | VACANCY   | Vacancy status                                                               | Y        | Y        | Y        |          | One of the codes in this indicators measures the quantity of housing dedicated to migratory workers.                                                                                                                              |
+| Appliances,   Mechanical, and Other Variables |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | VEHICLES  | Vehicles availble (No vehicles   to 7 vehicles)                                                                                                   | Y        | Y        | Y        |          | To what extent do Latinos in this place enjoy the freedom of mobility? What does this imply for access to employment, education, and other crucial needs?                                                                                                                              |
+|                                               | CINETHH   | Access to the internet                                                                                                                            | N        | Y        | Y        |          | The COVID-19 pandemic revealed how important internet connectivity is for households staying connected to family, friends, and education. How does access to the internet serve as a proxy for isolation?                                                                                                                             |
+|                                               |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+| Person                                        | Code      | Description                                                                                                                                       | 2009 ACS | 2014 ACS | 2019 ACS | Category | Notes                                                                                                                        |
+| Family   Interrelationship Variables          |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | NCHILD    | Number of children in the household (0-9+)                                                                                                      | Y        | Y        | Y        |          |                                                                                                                              |
+| Demographic                                   |           |                                                                                                                                                   |          |          |          |          | Nearly half (47%) of Latinos in rural areas are born into poverty, compared to 27% of rural White children.                                                                                                                              |
+|                                               | SEX       | Male or female (ratios)                                                                                                                           | Y        | Y        | Y        |          | Several studies, including the 2002 Brookings report mentioned above, have revealed an increasingly disproportionate male to female ratio, especially in smaller areas, which may serve as an indicator for the type of occupation that is drawing Latinos to these places.                                                                                                                              |
+|                                               | AGE       | Age by number (younger   demographic)                                                                                                             | Y        | Y        | Y        |          | Is the Latino population younger than the general population?                                                                                                                              |
+|                                               | MARST     | Marital status (married, separated, divorced, widowed, or never married and single)                                                             | Y        | Y        | Y        |          |                                                                                                                              |
+| Race,   Ethnicty, and Nativity Variables      |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | RACE      | Race (White, Black, Chinese, Japanese, Native American, etc.                                                                                    | Y        | Y        | Y        |          |                                                                                                                              |
+|                                               | HISPAN    | Hispanic orgin (Not Hispanic, Mexican, Puerto Rican, Cuban, other)                                                                              | Y        | Y        | Y        |          |                                                                                                                              |
+|                                               | CITIZEN   | Citizenship status (naturalized   citizen or not a citizen)                                                                                       | Y        | Y        | Y        |          | How do levels of citizenship vary by region or place? Where are non-ciitzens choosing to settle?                                                                                                                              |
+|                                               | YRIMMIG   | Year in which foreign-born   person entered the US (exact year)                                                                                   | Y        | Y        | Y        |          | How long have immigrants been in the country? The implications may be tremendous if immigration legislation in the works grants a faster pathway to citizenship for Latinos that have been in the US for more than a designated amount of time. Where are new arrivals attracted to?                                                                                                                              |
+| Health   Insurance                            |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | HCOVANY   | Health insurance coverage (with   or without)                                                                                                     | Y        | Y        | Y        |          | What is the general level of (un)insured by place? Could there be an implication for expanding Medicare or Medicaid, especially to non-citizens?                                                                                                                            |
+|                                               | HCOVPRIV  | Private insurance (employer,   union, private company, TRICARE, and other military)                                                               | Y        | Y        | Y        |          | Where do Latinos have higher rates of private insurance?                                                                                                                             |
+|                                               | HCOVPUB   | Public insurance (Medicare,   Medicaid, or VA)                                                                                                    | Y        | Y        | Y        |          | Where do Latinos have higher rates of public insurance? What are the implications of expanding government health insurance services? A Brookings study advocates for the expansion of Medicaid to reduce the number of uninsured, and also calls for providing insurance to undocumented immigrants.                                                                                                                               |
+| Education                                     |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | EDUC      | Educational Attainment (grade   school, BA, MA, or PhD)                                                                                           | Y        | Y        | Y        |          | Where are the most and least educated Latinos? What does this imply for upward social mobility, occupational outlooks, and maybe even student debt? Latinos are quickly becoming the largest demographic in elementary schools across the country. Some places are establishing optional bilingual education programs and this could become a larger trend. A 2017 Education Trust report found that the lowest education attainment rate is in the West, South, and parts of the Midwest while the highest rate was in the Northeast. The Northeast is also closing the gap fastest.                                                                                                                               |
+|                                               | SCHLTYPE  | School type (public or private)                                                                                                                   | Y        | Y        | Y        |          |                                                                                                                              |
+| Work                                          |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | EMPSTAT   | Employment status (employed,   unemployed, not in labor force)                                                                                    | Y        | Y        | Y        |          | How do Latino labor patterns compare to the general population?                                                                                                                              |
+|                                               | CLASSWKR  | Class of worker (self-employed   versus wage worker)                                                                                              | Y        | Y        | Y        |          | Could the self-employed code in this indicator serve as a proxy for small business ownership? Are certain places enjoying high levels of small business ownership but may lack the support from a Hispanic Chamber of Commerce that assists with language tranlation, service connections, and other assistance? The United State Hispanic Chambers of Commerce noted in their 2017 report that the fastest growth rate of Hispanic businesses was in the South and West North Central (North and South Dakota, Nebraska, Kansas, Iowa, Minnesota, and Missouri).                                                                                                                              |
+|                                               | OCC2010   | Occupation, 2010 basis                                                                                                                            | Y        | Y        | Y        |          | For further aggregation of occupations, see link:   https://usa.ipums.org/usa-action/variables/OCC2010#description_section. What are the most common occupations and how do they differ by region and by size of place? A United States Department of Agriculture study found that rural Latinos were more likely to be in the agriculture, manufacturing, production, transportation, and service industry than Whites. |
+|                                               | INDNAICS  | Industry, NAICS classification                                                                                                                    | Y        | Y        | Y        |          | For a table on NAICS Industry,   see link: https://usa.ipums.org/usa/volii/indnaics18.shtml. Could industry tell a story about what is attracting Latinos?                                   |
+| Income   Variables                            |           |                                                                                                                                                   |          |          |          |          |                                                                                                                              |
+|                                               | POVERTY   | Poverty status (income as   percentage of poverty threshold)                                                                                      | Y        | Y        | Y        |          | Where are poverty levels highest and lowest? Although cost of living is lower in small towns, does this translate into lower poverty levels there?                                                                                                                              |
+|                                               | INCWELFR  | Welfare (public assistance)   income, including Supplemental Security Income, , general assistance, and aid   to families with dependent children | Y        | Y        | Y        |          | To what extent do Latinos rely on government services for basic necessities? A US Department of Agriculture found that Latinos in non-metros were twice as likely to be on food stamps or WIC, but half as likely to be on Medicare.                                                                                                                               |
+|                                               | INCBUS00  | Business and farm income, 2000   (self-employment income from business, practice, or farm)                                                        | Y        | Y        | Y        |          | What can we learn about small business owners?                                                                                                                              |
+
+# Data Description, Preliminary Analysis, and Interpretation
+
+*Homeownership Rates and Gaps*
+
+Homeownership in 2009 and 2019, gap then and gap now, and fastest rate of closing or opening the gap.
+$$
+Homeownership Gap_{2019} = Place Homeownership_{2019} - Latino Homeownership_{2019} 
+$$
+
+$$
+Homeownership Gap_{2009} = Place Homeownership_{2009} - Latino Homeownership_{2009} 
+$$
+
+$$
+GapChange_{2019-2009} = \frac{Gap_{2019} - Gap_{2009}}{Gap_{2009}}*100 
+$$
+
+*Poverty*
+
+Poverty in 2009 and 2019, gap then and gap now, and fastest rate of closing or opening the gap
+
+$$
+PovertyGap_{2019} = Place Poverty_{2019} - Latino Poverty_{2019} 
+$$
+
+$$
+Poverty Gap_{2009} = Place Poverty_{2009} - Latino Poverty_{2009} 
+$$
+
+$$
+GapChange_{2019-2009} = \frac{Gap_{2019} - Gap_{2009}}{Gap_{2009}}*100 
+$$
+
+*Educational Attainment*
+
+College degree attainment in 2009 and 2019, gap then and gap now, and fastest rate of closing or opening the gap
+
+$$
+EdcationGap{2019} = PlaceEducation_{2019} - LatinoEducation_{2019} 
+$$
+
+$$
+EducationGap_{2009} = Place Education_{2009} - Latino Education_{2009} 
+$$
+
+$$
+GapChange_{2019-2009} = \frac{Gap_{2019} - Gap_{2009}}{Gap_{2009}}*100 
+$$
+
+*Health Insurance*
+
+Public and private insurance in 2009 and 2019, gap then and gap now, and fastest rate of closing or opening the gap
+
+$$
+InsuranceGap_{2019} = PlaceInsurance_{2019} - LatinoInsurance_{2019} 
+$$
+
+$$
+InsuranceGap_{2009} = PlaceInsurance_{2009} - LatinoInsurance{2009} 
+$$
+
+$$
+GapChange_{2019-2009} = \frac{Gap_{2019} - Gap_{2009}}{Gap_{2009}}*100 
+$$
+
+*Largest Inequalities within a  County between Latinos*
+
+In addition to understanding where the widest and narrowest gaps between Latinos and the average population exist, where are the largest inequalities within the Latino ethnicity, as measured by standard deviations between tracts or places within a county. My lived experience has shown me that the Latinos living in one metropolitan area can have vastly different social networks and opportunity structures. Where do we see this happening most? 
+
+Homeownership_SD <- mutate(LatinoHomeownership_SD = scale(LatinoHomeownership)) 
+
+Poverty_SD <- mutate(LatinoPoverty_SD = scale(LatinoPoverty)) 
+
+Education_SD <- mutate(LatinoEducation_SD = scale(LatinoEducation)) 
+
+Insurance_SD <- mutate(LatinoInsurance_SD = scale(LatinoInsurance)) 
+
+
+# Future Directions 
+*How do you plan to expand on this analysis for the final project?*
+
+Previous studies, such as a homeownership gap analysis by Urban Institute, demonstrate that the gap is widest in the Northeast and narrowest in the Southwest, particularly Texas. A study by the Education Trust, however, shows that the Northeast has the most educated Latinos and is closing the gaps fastest. Are these gap patterns replicated in terms of poverty and insurance coverage? What does this imply about standard of living and opportunity for Latinos in the Southwest, the Northeast, and the remaining regions? 
+
+Additionally, it's important to identify where the gaps are being closed fastest or where inequalities are growing. I have not encountered studies that investigate trends towards improvements or inequalities. 
+
+I remain uncertain about the geographic level of analysis. In Session 17 Lab, we learned how to create sub-locations from GEOIDs and FIPS Codes. Aggregating data from Census tracts to counties, to states, and finally, sub-regions, may be a better approach to data analysis than through the places route. Nonetheless, the same process of categorization would take place. 
+
+After conducting these four analyses on gaps, rates of change, and standard deviation, some geographic patterns may emerge.The next step will be to conduct a more thorough analysis using the indicators described in the Data Sources section to create an opportunity index and work towards creating a Latino Opportunity Map for the United States. It may become possible to draw conclusions about what regions or metropolitan sizes are best for Latino livelihoods and where gaps are opening or closing fastest. 
+
+The final project will be in the shape of an opportunity index map for Latinos across the country. By investingating gaps, rates of change, and standard deviations, I seek to get a better understanding of inequalities, (un)successful efforts to improve livelihoods, and inequalities within the Latino ethnicity. 
+
