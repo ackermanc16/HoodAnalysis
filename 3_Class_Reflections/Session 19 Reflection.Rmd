@@ -1,0 +1,19 @@
+---
+title: "Crime and Incarceration Reflection"
+author: "Christopher Ackerman-Avila"
+output: html_notebook
+---
+
+#This Week’s Reflection Questions
+*The Million Dollar Blocks analytic framework shifts the conversation about crime from one about where crimes occur to one about where public dollars are being spent on incarceration?*
+Lab 19 and 20 calculated very conservative costs of incarceration and did not even include the cost of policing which leads to incarceration. When the public learns what incidents are leading to most of the incarceration, support for police reform can grow. The top 3 categories of incidents are non-violent and consist of 40% of all incidents. If we could, let's entertain the idea that if we stop policing for those 3 categories, we could reduce the cost of incarceration by 40%. If we look at all non-violent incidents, we could reduce the costs by more than half. The public should be asking where public money being spent for incarceration and for what kinds of crimes. 
+
+*What are the implications of shifting towards a conversation focused on the public impact and cost of incarceration versus one focused on where offenses occur?*
+
+
+*In general, neighborhood crime data can be tricky to accurately represent - why might this be the case? What questions do we need to ask about crime reporting in order to effectively analyze and facilitate deliberation using data on were crimes occur?*
+Class discussion on Tuesday centered on the distinction between violent and non-violent offenses. Our findings in Lab 19 and 20 uncovered just how much of the offenses are non-violent drug offenses. In Chicago, the top 3 offenses are non-violent offenses, totaling approximately 40% of all offenses. This does not even consider all drug-related offenses. Asking the question, "where do crimes occur", is not enough. Because the answer is one we already know - in the places we look for them, especially those non-violent drug offenses. The Million Dollar Blocks might demonstrate the cost of incarceration, but it also uncovers where Chicago Police is spending its time and money looking for those crimes. 
+
+We need to begin asking where violent crime is occuring. Asking where crime in general occurs only demonstrates where racialized policing is most taking place. 
+
+Additionally, class discussion touched on the difference between where the crime occurs and where the offender is from. These two are not always the place. Depicting where crime is occuring may only recreate assumptions about neighborhood safety and "desirability". The FOIA data described where the incident occured, but not necessarily where the offender is from. 
