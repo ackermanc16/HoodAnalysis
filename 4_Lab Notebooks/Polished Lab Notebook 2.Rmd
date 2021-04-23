@@ -1,0 +1,377 @@
+---
+title: 'Polished Lab #2'
+author: "Christopher Ackerman-Avila"
+date: "4/23/2021"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(tidycensus)
+library(knitr)
+library(dplyr)
+library(tigris)
+library(purrr)
+library(sf)
+library(usmap)
+library(viridis)
+library(scales)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+census_api_key("4d8d85bafe310bb13e1b7e4dcba8c65ae4c55ac1", install = TRUE, overwrite = TRUE)
+```
+
+In Lab 17, we learned how to make an Opportunity Index for the Chicago Metropolitan Region at the Census tract level. For this polished notebook, we'll expand the region of analysis to be the entire United States at the county level. We'll consider 2 indicators: health insurance coverage and homeownership. 
+
+First, to visualize our data, we need to download the usmap package.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+us_counties <- counties(state = NULL, class = "sf")
+```
+
+# Mapping Existing Conditions, Gaps, and Changes in Gaps
+
+
+```{r, echo=FALSE, message=FALSE}
+lat_health_2019 <- get_acs(geography = "county", variables = c("C27001I_001", "C27001I_004", "C27001I_007", "C27001I_010"), year = 2019, survey = "acs5", output = "wide")
+
+lat_own_2019 <- get_acs(geography = "county", variables = c("B25003I_001", "B25003I_002"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  rename(total_lat_pop = C27001I_001E, child_nocoverage = C27001I_004E, adult_nocoverage = C27001I_007E, senior_nocoverage = C27001I_010E) %>% 
+  mutate(pct_uninsured = (child_nocoverage+adult_nocoverage+senior_nocoverage)/(total_lat_pop)) %>% 
+  select(GEOID, NAME, total_lat_pop, child_nocoverage, adult_nocoverage, senior_nocoverage, pct_uninsured)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  rename(total_lat_pop = B25003I_001E, lat_own = B25003I_002E) %>% 
+  mutate(pct_own_lat = lat_own/total_lat_pop) %>% 
+  select(GEOID, NAME, total_lat_pop, lat_own, pct_own_lat)
+```
+
+# Health Insurance
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- left_join(lat_health_2019, us_counties, by = "GEOID") %>% 
+  rename(fips = GEOID)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  mutate(legend_lat_health_2019 = case_when(
+    pct_uninsured >= 0.27 ~ ">27%",
+    pct_uninsured <= 0.09 ~ "<9%",
+    between(pct_uninsured, 0.09, 0.18) ~ "9%-18%",
+    between(pct_uninsured, 0.18, 0.27) ~ "18%-27%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  mutate(legend_lat_health_2019 = factor(legend_lat_health_2019, levels = c(">27%", "18%-27%", "9%-18%", "<9%")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_health_2019, values = "legend_lat_health_2019", colour = "grey35")+
+  labs(title = "Uninsured Latino Population in the United States, 2019",subtitle = "Share of Uninsured Latinos in the United States by County", caption = "Source: U.S. Census Bureau, Census Table C27001I", fill = "Share Uninsured")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">27%" = "#cc4c02", "18%-27%" = "#fe9929", "9%-18%" = "#fed98e", "<9%" = "#ffffd4"))
+```
+
+```{r}
+white_health_2019 <- get_acs(geography = "county", variables = c("C27001A_001", "C27001A_004", "C27001A_007", "C27001A_010"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r}
+white_health_2019 <- white_health_2019 %>% 
+  rename(white_pop = C27001A_001E, child_uninsured = C27001A_004E, adult_uninsured = C27001A_007E, senior_uninsured = C27001A_010E) %>% 
+  mutate(white_uninsured_2019 = ((child_uninsured+adult_uninsured+senior_uninsured)/white_pop)) %>% 
+  select(GEOID, NAME, child_uninsured, adult_uninsured, senior_uninsured, white_pop, white_uninsured_2019)
+```
+
+```{r}
+white_health_2019 <- white_health_2019 %>% 
+  rename(fips = GEOID)
+```
+
+
+```{r}
+health_gap_2019 <- left_join(lat_health_2019, white_health_2019, by = "fips") %>% 
+  mutate(gap_2019 = (white_uninsured_2019 - pct_uninsured)) %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2019 <- health_gap_2019 %>% 
+  mutate(legend_health_gap_2019 = case_when(
+    gap_2019 >= 0.0 ~ "No Gap",
+    gap_2019 <= -.15 ~ ">15%",
+    between(gap_2019, -0.075,0) ~ "0%-7.5%",
+    between(gap_2019, -0.15,-0.075) ~ "7.5%-15%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2019 <- health_gap_2019 %>% 
+  mutate(legend_health_gap_2019 = factor(legend_health_gap_2019, levels = c("No Gap", "0%-7.5%", "7.5%-15%", ">15%")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = health_gap_2019, values = "legend_health_gap_2019", colour = "grey35")+
+  labs(title = "Uninsured Gap in the United States, 2019",subtitle = "White-Latino Gap in Insurance Coverage in the United States by County", caption = "Source: U.S. Census Bureau, Census Table C27001I and C27001A", fill = "Coverage Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-7.5%" = "#fff7bc", "7.5%-15%" = "#fec44f", ">15%" = "#d95f0e"))
+```
+
+There are very evident gap patters in helath insurnace coverage across the United States. In the Southwest, places like California, Arizona, and New Mexico have very low rates of no coverage. However, in the Southern states, the difference is very stark. Approximately one in four Latinos in the South are uninsured. The patterns are not a big surprise because southern states are less likely to provide public health insurance programs to assist the most marginalized. The southwestern states, however, especially California, are very well-known for popular health insurance programs that welcome everyone. 
+
+# Homeownership
+
+```{r}
+lat_own_2019<- lat_own_2019 %>% 
+  rename(fips = GEOID)
+```
+
+```{r}
+summary(lat_own_2019$pct_own_lat)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  mutate(legend_own_2019 = case_when(
+    pct_own_lat <= 0.40 ~ "<40%",
+    pct_own_lat >= 0.70 ~ ">70%",
+    between(pct_own_lat, 0.40, 0.55) ~ "40%-55%", 
+    between(pct_own_lat, 0.55, 0.70) ~ "55%-70%"))
+```
+
+```{r}
+lat_own_2019 <- lat_own_2019 %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r}
+lat_own_2019 <- lat_own_2019 %>% 
+  mutate(legend_own_2019= factor(legend_own_2019, levels = c(">70%", "55%-70%", "40%-55%", "<40%")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_own_2019, values = "legend_own_2019", colour = "grey35")+
+  labs(title = "Latino Homeownership in the United States, 2019",subtitle = "Homeownership Rate by County", caption = "Source: U.S. Census Bureau, Census Table B25003I", fill = "Rate")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">70%" = "#d95f0e", "55%-70%" = "#fe9929", "40%-55%" = "#fed98e", "<40%" = "#ffffd4"))
+```
+
+```{r}
+white_own_2019 <- get_acs(geography = "county", variables = c("B25003A_001", "B25003A_002"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r}
+white_own_2019 <- white_own_2019 %>% 
+  rename(total_white_pop_2019 = B25003A_001E, white_own_2019 = B25003A_002E) %>% 
+  mutate(pct_white_own_2019 = white_own_2019/total_white_pop_2019) %>% 
+  select(GEOID, NAME, total_white_pop_2019, white_own_2019, pct_white_own_2019)
+```
+
+```{r}
+white_own_2019 <- white_own_2019 %>% 
+  rename(fips = GEOID)
+```
+
+```{r}
+gap_own_2019 <- left_join(lat_own_2019, white_own_2019, by = "fips")
+```
+
+```{r}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(own_gap_2019 = pct_white_own_2019 - pct_own_lat)
+```
+
+```{r}
+summary(gap_own_2019$own_gap_2019)
+```
+
+```{r}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(legend_own_gap_2019 = case_when(
+    own_gap_2019 >= 0.33 ~ ">33%",
+    own_gap_2019 <= 0.0 ~ "No Gap",
+    between(own_gap_2019, 0.11, 0.22) ~ "11%-22%", 
+    between(own_gap_2019, 0.22, 0.33) ~ "22%-33%",
+    between(own_gap_2019, 0, 0.11) ~ "0%-11%"))
+```
+
+```{r}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(legend_own_gap_2019= factor(legend_own_gap_2019, levels = c("No Gap", ">33%", "22%-33%%", "11%-22%", "0%-11%")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = gap_own_2019, values = "legend_own_gap_2019", colour = "grey35")+
+  labs(title = "Homeownership Gap in the United States, 2019",subtitle = "White-Latino Homeownership Gap by County", caption = "Source: U.S. Census Bureau, Census Table B25003I & B25003A", fill = "Ownership Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-11%" = "#ffffd4", "11%-22%" = "#fed98e", "22%-33%" = "#fe9929", ">33%" = "#cc4c02"))
+```
+
+Homeownership rates show a different result. 
+In 2019, the average Latino homeownership rate in the country was 47.5%, down from the peak of 49.7% in 2009, according to the National Association of Hispanic Real Estate Professionals. In 2006, the U.S. Department of Housing and Urban Development Office of Policy Development and Research released a report on homeownership rate differences between Hispanics and non-Hispanic Whites. The report found much smaller gaps in homeownership rates in the South and the West and larger gaps in the Northeast. 
+A report by the Urban Institute also found that there are larger homeownership gaps between Hispanics and non-Hispanic whites in the Northeast. In some metros in the southwest, Hispanics have higher homeownership rates than their white counterparts. A National Association of Home Builders report also documented the gaps by county, which confirmed lower homeownership rates in the northeast and west, including higher Hispanic-white homeownership gaps.
+
+The results from this map confirm that there are massive homeownership gaps in the Northeast, while the smallest gaps are in the South. This runs contrary to many assumptions that regions such as the Northeast are better places for Latinos economically. 
+
+#Opportunity Index, Inequality Index, & Opportunity Trends
+
+
+
+```{r}
+opp_index <- get_acs(geography = "county", variables = c("B03003_003E"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r}
+opp_index <- opp_index %>% 
+  rename(fips = GEOID, tot_lat_2019 = B03003_003E) %>% 
+  select(fips, NAME, tot_lat_2019)
+```
+
+```{r}
+opp_index <- opp_index %>% 
+  filter(tot_lat_2019 >= 1000)
+```
+
+```{r}
+opp_index <- opp_index %>% 
+  filter(fips < 72000)
+```
+
+```{r}
+opp_index <- left_join(opp_index, gap_own_2019, by = "fips")
+```
+
+```{r}
+opp_index <- left_join(opp_index, health_gap_2019, by = "fips")
+```
+
+```{r}
+opp_index <- left_join(opp_index, lat_health_2019, by = "fips")
+```
+
+```{r}
+opp_index <- left_join(opp_index, lat_own_2019, by = "fips")
+```
+
+
+```{r} 
+opp_index_scaled <- opp_index %>%
+  mutate_at(vars(pct_uninsured.x, gap_2019, pct_own_lat.y, own_gap_2019), list(scale=scale))
+```
+
+```{r}
+opp_index_scaled<-opp_index_scaled %>%
+  rowwise() %>% 
+  mutate(
+  existing_conditions_index = sum(pct_uninsured.x_scale, pct_own_lat.y_scale, na.rm=TRUE),
+  gap_index = sum(gap_2019_scale, own_gap_2019_scale, na.rm=TRUE))
+```
+
+```{r}
+library(scales)
+```
+
+```{r}
+opp_index_scaled <- opp_index_scaled %>% 
+  ungroup() %>% 
+  mutate(existing_conditions_index = rescale(existing_conditions_index, to = c(0,100)),
+         gap_index = rescale(gap_index, to = c(0,100)))
+```
+
+#Opporunity Index, 2019
+
+```{r}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_existing_index = case_when(
+    existing_conditions_index >= 90 ~ "Below 10 - Below Average",
+    existing_conditions_index <= 10 ~ "Above 90 - Above Average",
+    between(existing_conditions_index, 10, 20) ~ "80-90",
+    between(existing_conditions_index, 20, 30) ~ "70-80",
+    between(existing_conditions_index, 30, 40) ~ "60-70",
+    between(existing_conditions_index, 40, 50) ~ "50-60",
+    between(existing_conditions_index, 50, 60) ~ "40-50", 
+    between(existing_conditions_index, 60, 70) ~ "30-40",
+    between(existing_conditions_index, 70, 80) ~ "20-30",
+    between(existing_conditions_index, 80, 90) ~ "10-20"))
+```
+
+```{r}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_existing_index= factor(legend_existing_index, levels = c("Above 90 - Above Average", "80-90", "70-80", "60-70", "50-60", "40-50", "30-40", "20-30", "10-20", "Below 10 - Below Average")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "legend_existing_index", colour = "grey35")+
+  labs(title = "Opportunity Map for Latinos Today",subtitle = "Opportunity Map for Latinos Based on Existing Conditions, 2019", fill = "Index Score")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("Above 90 - Above Average" = "#313695", "80-90" = "#4575b4", "70-80" = "#74add1", "60-70" = "#abd9e9", "50-60" = "#e0f3f8", "40-50" = "#fee090", "30-40" = "#fdae61", "20-30" = "#f46d43", "10-20" = "#d73027", "Below 10 - Below Average" = "#a50026"))
+```
+
+Inequality Index, 2019
+
+```{r}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_gap_index = case_when(
+    gap_index >= 90 ~ "Below 10 - High Inequality",
+    gap_index <= 10 ~ "Above 90 - Low Inequality",
+    between(gap_index, 10, 20) ~ "80-90",
+    between(gap_index, 20, 30) ~ "70-80",
+    between(gap_index, 30, 40) ~ "60-70",
+    between(gap_index, 40, 50) ~ "50-60",
+    between(gap_index, 50, 60) ~ "40-50", 
+    between(gap_index, 60, 70) ~ "30-40",
+    between(gap_index, 70, 80) ~ "20-30",
+    between(gap_index, 80, 90) ~ "10-20"))
+```
+
+```{r}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_gap_index= factor(legend_gap_index, levels = c("Above 90 - Low Inequality", "80-90", "70-80", "60-70", "50-60", "40-50", "30-40", "20-30", "10-20", "Below 10 - High Inequality")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "legend_gap_index", colour = "grey35")+
+  labs(title = "Inequality Index, 2019",subtitle = "White-Latino Inequality Index, 2019", fill = "Index Score")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("Above 90 - Low Inequality" = "#313695", "80-90" = "#4575b4", "70-80" = "#74add1", "60-70" = "#abd9e9", "50-60" = "#e0f3f8", "40-50" = "#fee090", "30-40" = "#fdae61", "20-30" = "#f46d43", "10-20" = "#d73027", "Below 10 - High Inequality" = "#a50026"))
+```
+
+The Opportunity Map and the Inequality Index tell very different stories. Although Latinos are better off in the Northeast and Southwest relative to other Latinos, there is the least inequality in the South.These opportunity and inequality maps serve different purposes for different stakeholders. Policymakers in different states may reflect on the achievements they've made to improve Latino livelihoods, or they may ponder on the magnitude of inequality and determine further action. 
+
+
