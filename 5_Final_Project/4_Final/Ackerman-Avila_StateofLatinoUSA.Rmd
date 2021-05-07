@@ -1,0 +1,2548 @@
+---
+title: "The State of Latino USA - Mapping Latinx Opportunity Across the Country"
+author: "Christopher Ackerman-Avila"
+date: "Spring 2021"
+output: html_document
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(tidycensus)
+library(knitr)
+library(dplyr)
+library(tigris)
+library(purrr)
+library(sf)
+library(usmap)
+library(viridis)
+library(scales)
+library(readr)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+census_api_key("4d8d85bafe310bb13e1b7e4dcba8c65ae4c55ac1", install = TRUE, overwrite = TRUE)
+```
+
+# **Part I**
+
+For decades, the Latino population in America has been dispersing from a few metropolitan areas in the Southwest to every corner of the country. According to Pew Research, the 100 largest counties by Hispanic population contained 71% of all Hispanics in 2013. In 1990, the figure stood at 78%. In other words, considerable growth has occurred in regions outside the most predominantly Latino regions. 
+
+This project seeks to understand the livelihoods of Latinos in new destinations. Where are the most impoverished and affluent Latinos in the country? Where are the highest and lowest gaps and rates of homeownership, educational attainment, income, health insurance coverage, and poverty? Where have these gaps been closing fastest or slowest? What similarities and differences can we observe between established metropolitan areas and emerging destinations or between small towns and large metros?   
+
+## Basic Demographics: Number, Share, and Growth
+*Census Table B03003*
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- get_acs(geography = "county", variables = c("B03003_001E", "B03003_003E"), year = 2019, survey = "acs5", output = "wide")
+lat_demog_2010 <- get_acs(geography = "county", variables = c("B03003_001E", "B03003_003E"), year = 2010, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  rename(Total_Pop_2019 = B03003_001E, Latino_Pop_2019 = B03003_003E, fips = GEOID) %>% 
+  mutate(Share_Latino_2019 = (Latino_Pop_2019/Total_Pop_2019)) %>% 
+  select(fips, NAME, Total_Pop_2019, Latino_Pop_2019, Share_Latino_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2010 <- lat_demog_2010 %>% 
+  rename(Total_Pop_2010 = B03003_001E, Latino_Pop_2010 = B03003_003E, fips=GEOID) %>% 
+  mutate(Share_Latino_2010 = (Latino_Pop_2010/Total_Pop_2010)) %>% 
+  select(fips, NAME, Total_Pop_2010, Latino_Pop_2010, Share_Latino_2010)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+us_counties <- counties(state = NULL, class = "sf") %>% 
+  rename(fips = GEOID)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- left_join(lat_demog_2019, us_counties, by = "fips")
+lat_demog_2010 <- left_join(lat_demog_2010, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  filter(Total_Pop_2019 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2010 <- lat_demog_2010 %>% 
+  filter(Total_Pop_2010 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  mutate(legend_lat_pop_2019 = case_when(
+    Latino_Pop_2019 >= 100000 ~ ">100,000",
+    between(Latino_Pop_2019, 50000, 100000) ~ "50,000-100,000",
+    between(Latino_Pop_2019, 10000, 50000) ~ "10,000-50,000",
+    between(Latino_Pop_2019, 1000, 10000) ~ "1,000-10,000",
+    Latino_Pop_2019 <= 1000 ~ "<1,000"), na.rm=TRUE)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  mutate(legend_lat_pop_2019 = factor(legend_lat_pop_2019, levels = c(">100,000", "50,000-100,000", "10,000-50,000", "1,000-10,000", "<1,000")))
+```
+
+*Latino Population*
+
+At first glance, it appears Latinos reside primarily in the Southwest, Florida, Chicago, and parts of the Northeast. Upon closer observation, we can see there are large Hispanic populations in non-traditional areas such as central Washington, southern Idaho, southwestern Kansas, and other counties throughout the country that merit further study to understand Latino livelihoods. For example, what is it like to be a Latino in Crawford County, Iowa or Dawson County, Nebraska where the population is approximately one-third Latino?  
+
+```{r}
+plot_usmap(regions = "counties", data = lat_demog_2019, values = "legend_lat_pop_2019", colour = "grey35")+
+  labs(title = "Latino Population in the United States, 2019",subtitle = "Number of Latinos in the United States by County", caption = "Source: U.S. Census Bureau, Census Table B03003", fill = "Population")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">100,000" = "#993404", "50,000-100,000" = "#d95f0e", "10,000-50,000" = "#fe9929", "1,000-10,000" = "#fed98e", "<1,000" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  mutate(legend_lat_share_2019 = case_when(
+    Share_Latino_2019 >= 0.25 ~ ">25%",
+    between(Share_Latino_2019, 0.15, 0.25) ~ "15%-25%",
+    between(Share_Latino_2019, 0.05, 0.15) ~ "5%-15%",
+    Share_Latino_2019 <= 0.05 ~ "<5%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_demog_2019 <- lat_demog_2019 %>% 
+  mutate(legend_lat_share_2019 = factor(legend_lat_share_2019, levels = c(">25%", "15%-25%", "5%-15%", "<5%")))
+```
+
+*Latino Population Share*
+
+However, the Latino population consists of a considerable portion of the population in more dispersed areas across the Southwest, West, and scattered parts of the Midwest and Northeast. There are hidden Latinos across the country in large metros and small towns that merit further research. 
+
+```{r}
+plot_usmap(regions = "counties", data = lat_demog_2019, values = "legend_lat_share_2019", colour = "grey35")+
+  labs(title = "Latino Population Share in the United States, 2019",subtitle = "Share of Latinos in the United States by County", caption = "Source: U.S. Census Bureau, Census Table B03003", fill = "Share")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">25%" = "#cc4c02", "15%-25%" = "#fe9929", "5%-15%" = "#fed98e", "<5%" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_growth_10to19 <- left_join(lat_demog_2010, lat_demog_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_growth_10to19 <- lat_growth_10to19 %>% 
+  mutate(Lat_Growth = ((Latino_Pop_2019 - Latino_Pop_2010)/(Latino_Pop_2010)))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_growth_10to19 <- lat_growth_10to19 %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_growth_10to19 <- lat_growth_10to19 %>% 
+  mutate(legend_lat_growth_2019 = case_when(
+    Lat_Growth >= 0.25 ~ "Fast Growth (Over 25%)",
+    Lat_Growth <= 0 ~ "Negative Growth",
+    between(Lat_Growth, 0.00, 0.25) ~ "Slow Growth (Less than 25%)"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_growth_10to19 <- lat_growth_10to19 %>% 
+  mutate(legend_lat_growth_2019 = factor(legend_lat_growth_2019, levels = c("Fast Growth (Over 25%)", "Slow Growth (Less than 25%)", "Negative Growth")))
+```
+
+*Latino Population Growth, 2010-2019*
+
+The most telling figure describes where the Latino population is growing fastest. The Southwest reported almost entirely slow growth while counties across the country saw rapid growth. Regions in the Midwestern and Mountain states are most surprising. According to the Pew Research Center, “Latinos account for more than half of the population growth in 41% of U.S. counties with at least 1,000 Latinos in 2014… about half are in non-metropolitan areas.” 
+
+Additionally, why are Latinos leaving parts of New Mexico, southern Colorado, and the Texas borderlands? More context for the Latino population is needed to make any determinations. 
+
+```{r}
+plot_usmap(regions = "counties", data = lat_growth_10to19, values = "legend_lat_growth_2019", colour = "grey35")+
+   labs(title = "Latino Population Growth in the United States, 2010-2019", subtitle = "Latino Population Growth in the United States by County", caption = "Source: U.S. Census Bureau, Table B03003", fill = "Growth Rate")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("Fast Growth (Over 25%)" = "#d95f0e", "Slow Growth (Less than 25%)" = "#fec44f", "Negative Growth" = "#bcbddc"))
+```
+
+### Nativity and Citizenship Status
+*Census Table B05003I* 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- get_acs(geography = "county", variables = c("B05003I_001E", "B05003I_007E", "B05003I_012E", "B05003I_018E", "B05003I_023E"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- lat_citizenship %>% 
+  rename(Total_Population = B05003I_001E, under_18_male = B05003I_007E, over_18_male = B05003I_012E, under_18_female = B05003I_018E, over_18_female = B05003I_023E, fips = GEOID) %>% 
+  select(fips, NAME, under_18_male, under_18_female, over_18_male, over_18_female, Total_Population) %>% 
+  mutate(share_non_citizen = (under_18_female+under_18_male+over_18_female+over_18_male)/Total_Population)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- left_join(lat_citizenship, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- lat_citizenship %>% 
+  filter(Total_Population >= 1000)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- lat_citizenship %>% 
+  mutate(legend_lat_citizenship = case_when(
+    share_non_citizen >= 0.25 ~ ">25%",
+    share_non_citizen <= 0.05 ~ "<5%",
+    between(share_non_citizen, 0.05, 0.15) ~ "5%-15%",
+    between(share_non_citizen, 0.15, 0.25) ~ "15%-25%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship <- lat_citizenship %>% 
+  mutate(legend_lat_citizenship = factor(legend_lat_citizenship, levels = c(">25%", "15%-25%", "5%-15%", "<5%")))
+```
+
+*Latino Non-Citizen Population*
+
+One of the most important issues in the Latino community is the topic of citizenship and immigration. The figure below reveals a surprising story: nearly one in five Latinos are not citizens. The largest proportion of non-citizen Latinos are not in the Southwest, but rather in the South and Pacific Northwest. This figure takes into account foreign-born, non-naturalized Latinos that may be in the United States with a work or travel visa or may be undocumented. This measure can serve as a proxy for vulnerability in the labor force and other arenas as undocumented immigrants or non-citizens may be hiding in the shadows to prevent an encounter with law enforcement.
+
+The share of non-citizen Latinos follows a close pattern: they are higher in areas with more blue-collar jobs as you will see below. In central Washington and southern Idaho, Latinos are largely part of the agriculture industry. In the Midwest, Latinos are largely part of the meat-packing and poultry industry. Large employers recruit Latinos across Latin America and bring them to the United States with work visas for difficult manual labor. The non-citizen population is also higher in traditionally conservative states such as Texas, Arkansas, Mississippi, Alabama, Georgia, and North Carolina which also have a larger proportion of blue collar jobs. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_citizenship %>% 
+  summarise(
+    share_non_citizen = weighted.mean(as.numeric(share_non_citizen), Total_Population, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_citizenship, values = "legend_lat_citizenship", colour = "grey35")+
+   labs(title = "Latino Non-Citizen Population, 2019", subtitle = "Percent of Foreign-Born, Non-Naturalized Latinos", fill = "Share Non-Citizen", caption= "Source: U.S. Census Bureau, Census Table B05003I")+
+  theme(legend.position="right")+
+  scale_fill_manual(values = c(">25%" = "#cc4c02", "15%-25%" = "#fe9929", "5%-15%" = "#fed98e", "<5%" = "#ffffd4"))
+```
+
+### Language: English Proficiency by Nativity 
+*Census Table B16005I* 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- get_acs(geography = "county", variables = c("B16005I_001E", "B16005I_006E", "B16005I_011E"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- lat_language %>% 
+  rename(Total_Pop = B16005I_001E, Native_Born_LTVW = B16005I_006E, Foreign_Born_LTVW = B16005I_011E, fips = GEOID) %>% 
+  select(fips, NAME, Total_Pop, Native_Born_LTVW, Foreign_Born_LTVW) %>% 
+  mutate(Share_LTVW = (Native_Born_LTVW + Foreign_Born_LTVW)/Total_Pop)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- left_join(lat_language, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- lat_language %>% 
+  filter(Total_Pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- lat_language %>% 
+  mutate(legend_lat_language = case_when(
+    Share_LTVW >= 0.30 ~ ">30%",
+    Share_LTVW <= 0.10 ~ "<10%",
+    between(Share_LTVW, 0.10, 0.20) ~ "10%-20%",
+    between(Share_LTVW, 0.20, 0.30) ~ "20%-30%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language <- lat_language %>% 
+  mutate(legend_lat_language = factor(legend_lat_language, levels = c(">30%", "20%-30%", "10%-20%", "<10%")))
+```
+
+*Latino English Proficiency*
+
+About one-third of Latinos across the country speak English less than very well. That rate holds steady across all regions, but New Mexico is a notable exception with particularly high English proficiency. Language proficiency is a major barrier for Latinos experiencing linguistic isolation. More often than not, government services or employment opportunities are offered exclusively in English. Accessing services, employment, and other forms of opportunity may be difficult with no English proficiency. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_language %>% 
+  summarise(
+    Share_LTVW = weighted.mean(as.numeric(Share_LTVW), Total_Pop, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_language, values = "legend_lat_language", colour = "grey35")+
+   labs(title = "Latino English Proficiency, 2019", subtitle = "Share of Latinos, Native & Foriegn Born, Speaking English Less Than Very Well in 2019", caption = "Source: U.S. Census Bureau, Census Table B16005I", fill = "Share Not English Proficient")+
+  theme(legend.position="right")+
+  scale_fill_manual(values = c(">30%" = "#cc4c02", "20%-30%" = "#fe9929", "10%-20%" = "#fed98e", "<10%" = "#ffffd4"))
+```
+
+### Gender Ratios 
+*Census Table B01001I*
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- get_acs(geography = "county", variables = c("B01001I_001", "B01001I_002", "B01001I_017", "B03003_003"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- lat_gender %>% 
+  rename(Total_Pop = B01001I_001E, Lat_Male = B01001I_002E, Lat_Female = B01001I_017E, full_lat_pop_2019 = B03003_003E, fips=GEOID) %>% 
+  select(Total_Pop, Lat_Male, Lat_Female, fips, NAME, full_lat_pop_2019) %>% 
+  mutate(Gender_Ratio = Lat_Male/Lat_Female)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- left_join(lat_gender, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- lat_gender %>% 
+  filter(full_lat_pop_2019 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(lat_gender$Gender_Ratio)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- lat_gender %>% 
+  mutate(legend_lat_gender = case_when(
+    Gender_Ratio >= 2.00 ~ "> 2 to 1",
+    Gender_Ratio <= 1.00 ~ "< 1 to 1",
+    between(Gender_Ratio, 1.0,1.15) ~ "1.0-1.15 to 1",
+    between(Gender_Ratio, 1.15, 2.0) ~ "1.15-2.0 to 1"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_gender <- lat_gender %>% 
+  mutate(legend_lat_gender = factor(legend_lat_gender, levels = c("> 2 to 1", "1.15-2.0 to 1", "1.0-1.15 to 1", "< 1 to 1")))
+```
+
+*Latino Gender Ratios*
+
+Latino gender ratios may be indicative of industry pull factors that lead to the migration of one gender more often than the other. Most counties in the country have between one and two Latino for every Latina, however, some scattered rural counties have more than a two to one ratio which may be due to the most prominent industry. Several large metros, such as San Diego, Los Angeles, Miami, Tucson, El Paso, Denver, and Albuquerque have more Latinas than Latinos. The reason behind the urban-rural divide is not clear.  
+
+```{r}
+plot_usmap(regions = "counties", data = lat_gender, values = "legend_lat_gender", colour = "grey35")+
+   labs(title = "Latino Gender Ratio, 2019", subtitle = "Male to Female Ratio", fill="Ratio", caption = "Source: U.S. Census Bureau, Census Table B01001I")+
+  theme(legend.position="right")+
+   scale_fill_manual(values = c( "> 2 to 1" = "#cc4c02", "1.15-2.0 to 1" = "#fe9929","1.0-1.15 to 1" = "#fed98e", "< 1 to 1" = "#bcbddc"))
+```
+
+### Occupation in Latino Households
+*Census Table C24010I*
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- get_acs(geography = "county", variables = c("C24010I_001E", "C24010I_004E", "C24010I_006E", "C24010I_007E", "C24010I_010E", "C24010I_012E", "C24010I_013E" ), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- lat_occupation %>% 
+  rename(Total_Pop = C24010I_001E, Blue1 = C24010I_004E, Blue2 = C24010I_006E, Blue3 = C24010I_007E, Blue4 = C24010I_010E, Blue5 = C24010I_012E, Blue6 = C24010I_013E, fips=GEOID) %>% 
+  select(fips, NAME, Total_Pop, Blue1, Blue2, Blue3, Blue4, Blue5, Blue6) %>% 
+  mutate(share_blue_collar_jobs = (Blue1 + Blue2 + Blue3 + Blue4 + Blue5 + Blue6)/ Total_Pop)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- left_join(lat_occupation, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- left_join(lat_occupation, lat_demog_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- lat_occupation %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- lat_occupation %>% 
+  mutate(legend_lat_occupation = case_when(
+    share_blue_collar_jobs >= 0.75 ~ ">75%",
+    share_blue_collar_jobs <= 0.50 ~ "<50%",
+    between(share_blue_collar_jobs, 0.50, 0.625) ~ "50%-62.5%",
+    between(share_blue_collar_jobs, 0.625, 0.75) ~ "62.5%-75%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation <- lat_occupation %>% 
+  mutate(legend_lat_occupation = factor(legend_lat_occupation, levels = c(">75%", "62.5%-75%", "50%-62.5%", "<50%")))
+```
+
+*Latinos in Blue Collar Occupations*
+
+Lastly, Latinos are overwhelmingly blue collar workers. Nationwide, 57% of Latinos are employed in the natural resources, service, construction, maintenance, production, transportation, and material moving industry. Once again, New Mexico and parts of Arizona have surprisingly low figures. Although the South, central Washington, southern Idaho, and the scattered counties in the Midwest may be heavy blue collar regions, noting that more than three in four Latinos work in these industries demonstrates the working class roots of our ethnicity. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_occupation %>% 
+  summarise(
+    share_blue_collar_jobs = weighted.mean(as.numeric(share_blue_collar_jobs), Latino_Pop_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_occupation, values = "legend_lat_occupation", colour = "grey35")+
+   labs(title = "Blue Collar Latinos", subtitle = "Share of Latinos with Service, Natural Resources, Construction, Maintenance, Production, Transportation, 
+or Material Moving Occupations", fill = "Share Blue Collar", caption = "Source: U.S. Census Bureau, Census Table C24010I")+
+  theme(legend.position="right")+
+  scale_fill_manual(values = c(">75%" = "#cc4c02", "62.5%-75%" = "#fe9929", "50%-62.5%" = "#fed98e", "<50%" = "#ffffd4"))
+```
+
+
+# **Part II**
+
+# Mapping Existing Conditions, Gaps, and Changes in Gaps
+
+
+```{r, echo=FALSE, message=FALSE}
+lat_health_2019 <- get_acs(geography = "county", variables = c("C27001I_001", "C27001I_004", "C27001I_007", "C27001I_010"), year = 2019, survey = "acs5", output = "wide")
+
+lat_edu_2019 <- get_acs(geography = "county", variables = c("C15002I_001", "C15002I_003", "C15002I_008"), year = 2019, survey = "acs5", output = "wide") 
+
+lat_income_2019 <- get_acs(geography = "county", table = "B19013I", year = 2019, survey = "acs5", output = "wide")
+
+lat_pov_2019 <- get_acs(geography = "county", variables = c("B17001I_001", "B17001I_002"), year = 2019, survey = "acs5", output = "wide")
+
+lat_own_2019 <- get_acs(geography = "county", variables = c("B25003I_001", "B25003I_002"), year = 2019, survey = "acs5", output = "wide")
+
+lat_empl_2019 <- get_acs(geography = "county", variables = c("C23002I_001", "C23002I_008", "C23002I_013", "C23002I_021", "C23002I_026"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  rename(total_lat_pop = C27001I_001E, child_nocoverage = C27001I_004E, adult_nocoverage = C27001I_007E, senior_nocoverage = C27001I_010E, fips = GEOID) %>% 
+  mutate(pct_uninsured = (child_nocoverage+adult_nocoverage+senior_nocoverage)/(total_lat_pop)) %>% 
+  select(fips, NAME, total_lat_pop, child_nocoverage, adult_nocoverage, senior_nocoverage, pct_uninsured)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2019 <- lat_edu_2019 %>% 
+  rename(total_lat_pop = C15002I_001E, male_noHS = C15002I_003E, female_noHS = C15002I_008E, fips = GEOID) %>% 
+  mutate(pct_lessthanHS = (male_noHS+female_noHS)/(total_lat_pop)) %>% 
+  select(fips, NAME, total_lat_pop, male_noHS, female_noHS, pct_lessthanHS)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_income_2019 <- lat_income_2019 %>% 
+  rename(lat_MHHI = B19013I_001E, fips = GEOID) %>% 
+  select(fips, NAME, lat_MHHI)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2019 <- lat_pov_2019 %>% 
+  rename(total_lat_pop = B17001I_001E, lat_below_poverty = B17001I_002E, fips = GEOID) %>% 
+  mutate(pct_poverty = lat_below_poverty/total_lat_pop) %>% 
+  select(fips, NAME, total_lat_pop, lat_below_poverty, pct_poverty)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  rename(total_lat_pop = B25003I_001E, lat_own = B25003I_002E, fips = GEOID) %>% 
+  mutate(pct_own_lat = lat_own/total_lat_pop) %>% 
+  select(fips, NAME, total_lat_pop, lat_own, pct_own_lat)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_empl_2019 <- lat_empl_2019 %>% 
+  rename(total_lat_pop = C23002I_001E, male_adult_unemployed = C23002I_008E, male_over65_unemployed = C23002I_013E, female_adult_unemployed = C23002I_021E, female_over65_unemployed = C23002I_026E, fips = GEOID) %>% 
+  mutate(unemployed = ((male_adult_unemployed+male_over65_unemployed+female_adult_unemployed+female_over65_unemployed)/total_lat_pop)) %>% 
+  select(fips, NAME, male_adult_unemployed, male_over65_unemployed, female_adult_unemployed, female_over65_unemployed, unemployed)
+```
+
+### Health Insurance
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- left_join(lat_health_2019, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  mutate(legend_lat_health_2019 = case_when(
+    pct_uninsured >= 0.27 ~ ">27%",
+    pct_uninsured <= 0.09 ~ "<9%",
+    between(pct_uninsured, 0.09, 0.18) ~ "9%-18%",
+    between(pct_uninsured, 0.18, 0.27) ~ "18%-27%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2019 <- lat_health_2019 %>% 
+  mutate(legend_lat_health_2019 = factor(legend_lat_health_2019, levels = c(">27%", "18%-27%", "9%-18%", "<9%")))
+```
+
+*Latino Health Insurance Coverage*
+
+Nationwide, 18% of Latinos do not have health insurance. However, there are severe regional differences. Western states had an average 13.8% uninsured rate, the Midwest had a 17% uninsured rate, the South stood at 25.3%, and the Northeast had a 12.7% uninsured rate. 
+
+A clear political pattern emerges for Latino health insurance coverage. Conservative states have high uninsured rates, while liberal states have lower rates of uninsured. This is likely because of state expansions of government programs such as Medicaid and Medicare. California, for example, recently expanded its Medi-Cal program to cover undocumented immigrants. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION) %>% 
+  summarise(
+    pct_uninsured = weighted.mean(as.numeric(pct_uninsured), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_health_2019, values = "legend_lat_health_2019", colour = "grey35")+
+  labs(title = "Uninsured Latino Population, 2019",subtitle = "Share of Uninsured Latinos by County", caption = "Source: U.S. Census Bureau, Census Table C27001I", fill = "Share Uninsured")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">27%" = "#cc4c02", "18%-27%" = "#fe9929", "9%-18%" = "#fed98e", "<9%" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_health_2019 <- get_acs(geography = "county", variables = c("C27001A_001", "C27001A_004", "C27001A_007", "C27001A_010"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_health_2019 <- white_health_2019 %>% 
+  rename(white_pop = C27001A_001E, child_uninsured = C27001A_004E, adult_uninsured = C27001A_007E, senior_uninsured = C27001A_010E, fips = GEOID) %>% 
+  mutate(white_uninsured_2019 = ((child_uninsured+adult_uninsured+senior_uninsured)/white_pop)) %>% 
+  select(fips, NAME, child_uninsured, adult_uninsured, senior_uninsured, white_pop, white_uninsured_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2019 <- left_join(lat_health_2019, white_health_2019, by = "fips") %>% 
+  mutate(gap_2019 = (white_uninsured_2019 - pct_uninsured)) %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2019 <- health_gap_2019 %>% 
+  mutate(legend_health_gap_2019 = case_when(
+    gap_2019 >= 0.0 ~ "No Gap",
+    gap_2019 <= -.15 ~ ">15%",
+    between(gap_2019, -0.075,0) ~ "0%-7.5%",
+    between(gap_2019, -0.15,-0.075) ~ "7.5%-15%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2019 <- health_gap_2019 %>% 
+  mutate(legend_health_gap_2019 = factor(legend_health_gap_2019, levels = c("No Gap", "0%-7.5%", "7.5%-15%", ">15%")))
+```
+
+*White-Latino Uninsured Gap*
+
+There are also clear regional patterns in the insurance coverage gap. The Southwest and parts of the Northeast are notable for having low gaps, while the South has large gaps. Citizenship status may play a role in the health insurance coverage gap. Some progressive states have opened state-un programs that include undocumented immigrants while other states refuse to expand Medicaid. The states that have not expanded Medicaid (WY, SD, KS, TX, WI, MS, AL, GA, FL, SC, NC, TN), for example, have the lowest coverage and highest gaps. 
+
+The Midwest and South had an average coverage gap of 10% while the Northeast and West had an average gap of 6-7%. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION) %>% 
+  summarise(
+    health_gap_2019 = weighted.mean(as.numeric(health_gap_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = health_gap_2019, values = "legend_health_gap_2019", colour = "grey35")+
+  labs(title = "Uninsured Gap in the United States, 2019",subtitle = "White-Latino Gap in Insurance Coverage in the United States by County", caption = "Source: U.S. Census Bureau, Census Table C27001I and C27001A", fill = "Coverage Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-7.5%" = "#fff7bc", "7.5%-15%" = "#fec44f", ">15%" = "#d95f0e"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2012 <- get_acs(geography = "county", variables = c("C27001I_001", "C27001I_004", "C27001I_007", "C27001I_010"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_health_2012 <-lat_health_2012 %>% 
+  rename(tot_lat_pop_2012 = C27001I_001E, lat_child_uninsured_2012 = C27001I_004E, lat_adult_uninsured_2012 = C27001I_007E, lat_senior_uninsured_2012 = C27001I_010E, fips = GEOID) %>% 
+  mutate(pct_lat_uninsured_2012 = (lat_child_uninsured_2012+lat_adult_uninsured_2012+lat_senior_uninsured_2012)/tot_lat_pop_2012) %>% 
+  select(fips, NAME, tot_lat_pop_2012, lat_child_uninsured_2012, lat_adult_uninsured_2012, lat_senior_uninsured_2012, pct_lat_uninsured_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_health_2012 <- get_acs(geography = "county", variables = c("C27001A_001", "C27001A_004", "C27001A_007", "C27001A_010"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_health_2012 <- white_health_2012 %>% 
+  rename(tot_white_pop_2012 = C27001A_001E, white_child_uninsured_2012 = C27001A_004E, white_adult_uninsured_2012 = C27001A_007E, white_senior_uninsured_2012 = C27001A_010E, fips=GEOID) %>% 
+  mutate(pct_white_uninsured_2012 = (white_child_uninsured_2012+white_adult_uninsured_2012+white_senior_uninsured_2012)/tot_white_pop_2012) %>% 
+  select(fips, NAME, tot_white_pop_2012, white_child_uninsured_2012, white_adult_uninsured_2012, white_senior_uninsured_2012, pct_white_uninsured_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2012 <- left_join(lat_health_2012, white_health_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_2012 <- health_gap_2012 %>% 
+  mutate(gap_2012 = pct_white_uninsured_2012 - pct_lat_uninsured_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_12to19 <- left_join(health_gap_2019, health_gap_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_12to19 <- health_gap_12to19 %>% 
+  mutate(change_health_gap_12to19 = (gap_2019-gap_2012)/gap_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_12to19 <- health_gap_12to19 %>% 
+  filter(total_lat_pop >=1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_12to19 <- health_gap_12to19 %>% 
+  mutate(legend_change_health_gap_12to19 = case_when(
+    change_health_gap_12to19 <= -0.50 ~ "Gap Narrowed Over 50%",
+    change_health_gap_12to19 >= 0.0 ~ "Gap Widened",
+    between(change_health_gap_12to19, -0.50, -0.25) ~ "Gap Narrowed 25%-50%",
+    between(change_health_gap_12to19, -0.25, 0.0) ~ "Gap Narrowed 0%-25%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+health_gap_12to19 <- health_gap_12to19 %>% 
+  mutate(legend_change_health_gap_12to19= factor(legend_change_health_gap_12to19, levels = c("Gap Narrowed Over 50%", "Gap Narrowed 25%-50%", "Gap Narrowed 0%-25%", "Gap Widened")))
+```
+
+*Change in White-Latino Gap*
+
+Most Western states such as California, Arizona, New Mexico, and Nevada expanded Medicaid in 2014 and have made great progress in closing the uninsured gap. As such, the West has successfully closed the coverage gap by 50% between 2012 and 2019. The Northeast has also closed the gap 40%, the Midwest by 32%, and the South lags behind with an 18% gap decline fueled mostly by Florida. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION) %>% 
+  summarise(
+    change_health_gap_12to19 = weighted.mean(as.numeric(change_health_gap_12to19), tot_lat_2019, na.rm=TRUE))
+```
+
+
+```{r}
+plot_usmap(regions = "counties", data = health_gap_12to19, values = "legend_change_health_gap_12to19", colour = "grey35")+
+  labs(title = "Change in White-Latino Health Insurance Coverage Gap, 2012-2019",subtitle = "Rate of Change in Gap by County", caption = "Source: U.S. Census Bureau, Census Table C27001I & C27001A", fill = "Change in Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("Gap Narrowed Over 50%" = "#d95f0e", "Gap Narrowed 25%-50%" = "#fec44f", "Gap Narrowed 0%-25%" = "#fff7bc", "Gap Widened" = "#bcbddc"))
+```
+
+
+### Educational Attainment
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2019 <- left_join(lat_edu_2019, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2019 <- lat_edu_2019 %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(lat_edu_2019$pct_lessthanHS)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2019 <- lat_edu_2019 %>% 
+  mutate(legend_lat_edu_2019 = case_when(
+    pct_lessthanHS >= 0.40 ~ ">40%",
+    pct_lessthanHS <= 0.20 ~ "<20%",
+    between(pct_lessthanHS, 0.2, 0.3) ~ "20%-30%",
+    between(pct_lessthanHS, 0.3, 0.4) ~ "30%-40%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2019 <- lat_edu_2019 %>% 
+  mutate(legend_lat_edu_2019= factor(legend_lat_edu_2019, levels = c(">40%", "30%-40%", "20%-30%", "<20%")))
+```
+
+*Latino Educational Attainment*
+
+Latinos without a high school degree are evenly spread across the country with minimal variations. About 28% of Latinos in the Northeast and one in three Latinos in the West have no high school degree.  
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION) %>% 
+  summarise(
+    pct_lessthanHS = weighted.mean(as.numeric(pct_lessthanHS), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_edu_2019, values = "legend_lat_edu_2019", colour = "grey35")+
+  labs(title = "Latino Educational Attainment, 2019",subtitle = "Share of Latinos with Less than a High School Degree by County", caption = "Source: U.S. Census Bureau, Census Table C15002I", fill = "Share")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c(">40%" = "#cc4c02", "30%-40%" = "#fe9929", "20%-30%" = "#fed98e", "<20%" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_edu_2019 <- get_acs(geography = "county", variables = c("C15002A_001", "C15002A_003", "C15002A_008"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_edu_2019 <- white_edu_2019 %>% 
+  rename(white_pop = C15002A_001E, male_lessthanHS = C15002A_003E, female_lessthanHS = C15002A_008E, fips=GEOID) %>% 
+  mutate(white_pct_lessthanHS = (male_lessthanHS+female_lessthanHS)/white_pop) %>% 
+  select(fips, NAME, white_pop, male_lessthanHS, female_lessthanHS, white_pct_lessthanHS)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2019 <- left_join(lat_edu_2019, white_edu_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2019 <- edu_gap_2019 %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2019 <- edu_gap_2019 %>% 
+  mutate(gap_2019 = white_pct_lessthanHS - pct_lessthanHS)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2019 <- edu_gap_2019 %>% 
+  mutate(legend_edu_gap_2019 = case_when(
+    gap_2019 <= -0.30 ~ ">30%",
+    gap_2019 >= 0.0 ~ "No Gap",
+    between(gap_2019, -0.3, -0.15) ~ "15%-30%",
+    between(gap_2019, -0.15, 0.0) ~ "0%-15%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2019 <- edu_gap_2019 %>% 
+  mutate(legend_edu_gap_2019= factor(legend_edu_gap_2019, levels = c("No Gap", "0%-15%", "15%-30%", ">30%")))
+```
+
+*Latino Education Gap*
+
+The Midwest has the highest education gap, with a difference of 23%. The South, Northeast, and West have lower education gaps with 15.7%, 17.3%, and 19.3%, respectively. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION) %>% 
+  summarise(
+    edu_gap_2019 = weighted.mean(as.numeric(edu_gap_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = edu_gap_2019, values = "legend_edu_gap_2019", colour = "grey35")+
+  labs(title = "Education Gap, 2019",subtitle = "White-Latino Gap in Share with Less than a High School Degree by County", caption = "Source: U.S. Census Bureau, Census Table C15002I & C15002A", fill = "Education Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-15%" = "#fff7bc", "15%-30%" = "#fec44f", ">30%" = "#d95f0e"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2012 <- get_acs(geography = "county", variables = c("C15002I_001", "C15002I_003", "C15002I_008"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_edu_2012 <-lat_edu_2012 %>% 
+  rename(tot_lat_pop_2012 = C15002I_001E, lat_male_lessthanHS_2012 = C15002I_003E, lat_female_lessthanHS_2012 = C15002I_008E, fips=GEOID) %>% 
+  mutate(pct_lat_edu_2012 = (lat_male_lessthanHS_2012+lat_female_lessthanHS_2012)/tot_lat_pop_2012) %>% 
+  select(fips, NAME, tot_lat_pop_2012, lat_male_lessthanHS_2012, lat_female_lessthanHS_2012, pct_lat_edu_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_edu_2012 <- get_acs(geography = "county", variables = c("C15002A_001", "C15002A_003", "C15002A_008"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_edu_2012 <- white_edu_2012 %>% 
+  rename(tot_white_pop_2012 = C15002A_001E, white_male_edu_2012 = C15002A_003E, white_female_edu_2012 = C15002A_008E, fips=GEOID) %>% 
+  mutate(pct_white_edu_2012 = (white_male_edu_2012+white_female_edu_2012)/tot_white_pop_2012) %>% 
+  select(fips, NAME, tot_white_pop_2012, white_male_edu_2012, white_female_edu_2012, pct_white_edu_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2012 <- left_join(lat_edu_2012, white_edu_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_2012 <- edu_gap_2012 %>% 
+  mutate(gap_2012 = pct_white_edu_2012 - pct_lat_edu_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_12to19 <- left_join(edu_gap_2019, edu_gap_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_12to19 <- edu_gap_12to19 %>% 
+  mutate(change_edu_gap_12to19 = (gap_2019-gap_2012)/gap_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_12to19 <- edu_gap_12to19 %>% 
+  mutate(legend_change_edu_gap_12to19 = case_when(
+    change_edu_gap_12to19 <= -0.30 ~ "Gap Narrowed Over 30%",
+    change_edu_gap_12to19 >= 0.0 ~ "Gap Widened",
+    between(change_edu_gap_12to19, -0.30, -0.15) ~ "Gap Narrowed 15%-30%", 
+    between(change_edu_gap_12to19, -0.15, 0.0) ~ "Gap Narrowed 0%-15%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+edu_gap_12to19 <- edu_gap_12to19 %>% 
+  mutate(legend_change_edu_gap_12to19= factor(legend_change_edu_gap_12to19, levels = c("Gap Narrowed Over 30%", "Gap Narrowed 15%-30%", "Gap Narrowed 0%-15%", "Gap Widened")))
+```
+
+*Change in Latino Education Gap*
+
+The education gap is slowly closing across the country with the exception of micropolitan areas in the Northeast and the rural South. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    change_edu_gap_12to19 = weighted.mean(as.numeric(change_edu_gap_12to19), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = edu_gap_12to19, values = "legend_change_edu_gap_12to19", colour = "grey35")+
+  labs(title = "Change in White-Latino Educational Attainment Gap, 2012-2019",subtitle = "Rate of Change in Gap by County", caption = "Source: U.S. Census Bureau, Census Table C15002I & C15002A", fill = "Change in Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("Gap Narrowed Over 30%" = "#d95f0e", "Gap Narrowed 15%-30%" = "#fec44f", "Gap Narrowed 0%-15%" = "#fff7bc", "Gap Widened" = "#bcbddc"))
+```
+
+### Income
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(lat_income_2019$lat_MHHI)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_income_2019 <- lat_income_2019 %>% 
+  mutate(legend_lat_MHHI_2019 = case_when(
+    lat_MHHI >= 55000 ~ ">$55,000",
+    lat_MHHI <= 38000 ~ "<$38,000",
+    between(lat_MHHI, 38000, 46500) ~ "$38,000-$46,500", 
+    between(lat_MHHI, 46500, 55000) ~ "$46,500-$55,000"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_income_2019 <- lat_income_2019 %>% 
+  mutate(legend_lat_MHHI_2019= factor(legend_lat_MHHI_2019, levels = c(">$55,000", "$46,500-$55,000", "$38,000-$46,500", "<$38,000")))
+```
+
+*Latino Median Household Income*
+
+Latinos in Western metros had the highest median household income, at $57,000 while Latinos in Midwestern, Southern, and Northeastern metros had incomes between $51-$52,000. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, REGION) %>% 
+  summarise(
+    lat_MHHI_2019 = weighted.mean(as.numeric(lat_MHHI_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_income_2019, values = "legend_lat_MHHI_2019", colour = "grey35")+
+  labs(title = "Latino Median Household Income, 2019", caption = "Source: U.S. Census Bureau, Census Table B19013I", fill = "Median Household Income")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">$55,000" = "#ffffd4", "$46,500-$55,000" = "#fed98e", "$38,000-$46,500" = "#fe9929", "<$38,000" = "#cc4c02"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_income_2019 <- get_acs(geography = "county", table = "B19013A", year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_income_2019 <- white_income_2019 %>% 
+  rename(white_income_2019 = B19013A_001E, fips=GEOID) %>% 
+  select(fips, NAME, white_income_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2019 <- left_join(lat_income_2019, white_income_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2019 <- income_gap_2019 %>% 
+  mutate(inc_gap_2019 = white_income_2019-lat_MHHI)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(income_gap_2019$inc_gap_2019)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2019 <- income_gap_2019 %>% 
+  mutate(legend_MHHI_gap_2019 = case_when(
+    inc_gap_2019 >= 20000 ~ ">$20,000",
+    inc_gap_2019 <= 0 ~ "No Gap",
+    between(inc_gap_2019, 0, 10000) ~ "$0-$10,000", 
+    between(inc_gap_2019, 10000, 20000) ~ "$10,000-$20,000"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2019 <- income_gap_2019 %>% 
+  mutate(legend_MHHI_gap_2019= factor(legend_MHHI_gap_2019, levels = c("No Gap", "$0-$10,000", "$10,000-$20,000", ">$20,000")))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2019 <- left_join(income_gap_2019, lat_demog_2019, by = "fips") %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+*White-Latino Income Gap*
+
+The largest income gaps are in Northeastern metros. Income gaps are prevalent everywhere, with Northeastern metros with over $30,000 income gaps while outlying micropolitan areas have the narrowest gaps of approximately $3,500. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    inc_gap_2019 = weighted.mean(as.numeric(inc_gap_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = income_gap_2019, values = "legend_MHHI_gap_2019", colour = "grey35")+
+  labs(title = "Income Gap, 2019",subtitle = "White-Latino Median Household Income Gap by County", caption = "Source: U.S. Census Bureau, Census Table B19013I & B19013A", fill = "Income Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("No Gap" = "#2c7fb8", "$0-$10,000" = "#fff7bc", "$10,000-$20,000" = "#fec44f", ">$20,000" = "#d95f0e"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_income_2012 <- get_acs(geography = "county", table = "B19013I", year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_income_2012<- lat_income_2012 %>% 
+  rename(lat_MHHI_2012 = B19013I_001E, fips=GEOID) %>% 
+  select(fips, NAME, lat_MHHI_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_income_2012 <- get_acs(geography = "county", table = "B19013A", year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_income_2012 <- white_income_2012 %>% 
+  rename(white_income_2012 = B19013A_001E, fips=GEOID) %>% 
+  select(fips, NAME, white_income_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2012 <- left_join(lat_income_2012, white_income_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+income_gap_2012<- income_gap_2012 %>% 
+  mutate(gap_MHHI_2012 = white_income_2012 - lat_MHHI_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- left_join(income_gap_2012, income_gap_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- gap_MHHI_12to19 %>% 
+  mutate(change_MHHI_gap_12to19 = (inc_gap_2019-gap_MHHI_2012)/gap_MHHI_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- gap_MHHI_12to19 %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(gap_MHHI_12to19$change_MHHI_gap_12to19)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19<-gap_MHHI_12to19 %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- gap_MHHI_12to19 %>% 
+  mutate(legend_change_MHHI_gap_12to19 = case_when(
+    change_MHHI_gap_12to19 <= -0.50 ~ "Gap Narrowed Over 50%",
+    change_MHHI_gap_12to19 >= 0.50 ~ "Gap Widened Over 50%",
+    between(change_MHHI_gap_12to19, -0.50, 0.0) ~ "Gap Narrowed 0%-50%", 
+    between(change_MHHI_gap_12to19, 0.0, 0.50) ~ "Gap Widened 0%-50%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- gap_MHHI_12to19 %>% 
+  mutate(legend_change_MHHI_gap_12to19= factor(legend_change_MHHI_gap_12to19, levels = c("Gap Narrowed Over 50%", "Gap Narrowed 0%-50%", "Gap Widened 0%-50%", "Gap Widened Over 50%")))
+```
+
+*Change in White-Latino Income Gap*
+
+Unfortunately, the income gap is widening just about everywhere, especially the Midwest and Northeast. Between 2012 and 2019, the Midwestern White-Latino income gap widened 77% while the Northeastern White-Latino gap increased 29%. Income gaps also widened over 70% in outlying metros, although the income gap narrowed slightly (11%) in central micropolitan areas. Most telling is that metropolitan areas continue to experience widening income gaps. It is unclear if the effects of Fight for $15 victories in cities and states across the country are reflected in this change.   
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation) %>% 
+  summarise(
+    change_MHHI_gap_12to19 = weighted.mean(as.numeric(change_MHHI_gap_12to19), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = gap_MHHI_12to19, values = "legend_change_MHHI_gap_12to19", colour = "grey35")+
+  labs(title = "Change in White-Latino Income Gap, 2012-2019",subtitle = "Rate of Change in Gap by County", caption = "Source: U.S. Census Bureau, Census Table B19013I & B19013A", fill = "Change in Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("Gap Narrowed Over 50%" = "#fe9929", "Gap Narrowed 0%-50%" = "#fed98e", "Gap Widened 0%-50%" = "#cbc9e2", "Gap Widened Over 50%" = "#9e9ac8"))
+```
+
+### Poverty
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2019 <- lat_pov_2019 %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(lat_pov_2019$pct_poverty)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2019 <- lat_pov_2019 %>% 
+  mutate(legend_pov_2019 = case_when(
+    pct_poverty >= 0.3 ~ ">30%",
+    pct_poverty <= 0.15 ~ "<15%",
+    between(pct_poverty, 0.15, 0.225) ~ "15%-22.5%", 
+    between(pct_poverty, 0.225, 0.3) ~ "22.5%-30%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2019 <- lat_pov_2019 %>% 
+  mutate(legend_pov_2019= factor(legend_pov_2019, levels = c(">30%", "22.5%-30%", "15%-22.5%", "<15%")))
+```
+
+*Latinos in Poverty*
+
+Poverty in the Latino community is higher in micropolitan areas (approximately 23-24%), than in metropolitan areas (18-19%). Northeastern, Midwestern, and Southern micropolitan areas had particularly high poverty rates over 25%. There are also slight variations by region: the West and Midwest had between 18-19% poverty rate and the South and Northeast had between 20-22%. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    pct_pov = weighted.mean(as.numeric(pct_pov), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_pov_2019, values = "legend_pov_2019", colour = "grey35")+
+  labs(title = "Latinos in Poverty, 2019",subtitle = "Share by County", caption = "Source: U.S. Census Bureau, Census Table B17001I", fill = "Poverty Rate")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">30%" = "#cc4c02", "22.5%-30%" = "#fe9929", "15%-22.5%" = "#fed98e", "<15%" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_pov_2019 <- get_acs(geography = "county", variables = c("B17001A_001", "B17001A_002"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_pov_2019 <- white_pov_2019 %>% 
+  rename(total_white_pop = B17001A_001E, white_below_pov_2019 = B17001A_002E, fips=GEOID) %>% 
+  mutate(pct_white_below_pov = white_below_pov_2019/total_white_pop) %>% 
+  select(fips, NAME, total_white_pop, white_below_pov_2019, pct_white_below_pov)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_pov_2019 <- white_pov_2019 %>% 
+  filter(total_white_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pov_gap_19 <- left_join(lat_pov_2019, white_pov_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pov_gap_19 <- pov_gap_19 %>% 
+  mutate(pov_gap_2019 = pct_white_below_pov-pct_poverty)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(pov_gap_19$pov_gap_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pov_gap_19 <- pov_gap_19 %>% 
+  mutate(legend_pov_gap_2019 = case_when(
+    pov_gap_2019 >= 0 ~ "No Gap",
+    pov_gap_2019 <= -0.15 ~ ">15%",
+    between(pov_gap_2019, -0.075, 0) ~ "0%-7.5%", 
+    between(pov_gap_2019, -0.15, -0.075) ~ "7.5%-15%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pov_gap_19 <- pov_gap_19 %>% 
+  mutate(legend_pov_gap_2019= factor(legend_pov_gap_2019, levels = c("No Gap", "0%-7.5%", "7.5%-15%", ">15%")))
+```
+
+*White-Latino Poverty Gap*
+
+The Northeast has the most outstanding poverty gap (11%), followed by the Midwest at 9%. Northeastern micropolitan areas had a 19% poverty gap. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    pov_gap_2019 = weighted.mean(as.numeric(pov_gap_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = pov_gap_19, values = "legend_pov_gap_2019", colour = "grey35")+
+  labs(title = "Poverty Gap, 2019",subtitle = "White-Latino Poverty Gap by County", caption = "Source: U.S. Census Bureau, Census Table B17001I & B17001A", fill = "Poverty Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-7.5%" = "#fff7bc", "7.5%-15%" = "#fec44f", ">15%" = "#d95f0e"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2012 <- get_acs(geography = "county", variables = c("B17001I_001", "B17001I_002"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_pov_2012 <- lat_pov_2012 %>% 
+  rename(total_lat_pop_2012 = B17001I_001E, lat_pov_2012 = B17001I_002E, fips=GEOID) %>% 
+  mutate(pct_lat_pov_2012 = lat_pov_2012/total_lat_pop_2012) %>% 
+  select(fips, NAME, total_lat_pop_2012, lat_pov_2012, pct_lat_pov_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_pov_2012 <- get_acs(geography = "county", variables = c("B17001A_001", "B17001A_002"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_pov_2012 <- white_pov_2012 %>% 
+  rename(total_white_pop = B17001A_001E, white_pov_2012 = B17001A_002E, fips=GEOID) %>% 
+  mutate(pct_white_pov_2012 = white_pov_2012/total_white_pop) %>% 
+  select(fips, NAME, total_white_pop, white_pov_2012, pct_white_pov_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_2012 <- left_join(lat_pov_2012, white_pov_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_2012 <- gap_pov_2012 %>% 
+  mutate(gap_2012 = pct_white_pov_2012-pct_lat_pov_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19 <- left_join(gap_pov_2012, pov_gap_19, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19 <- gap_pov_12to19 %>% 
+  mutate(change_pov_gap_12to19 = (pov_gap_2019-gap_2012)/(gap_2012))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(gap_pov_12to19$change_pov_gap_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19<-gap_pov_12to19 %>% 
+  filter(total_lat_pop >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19 <- gap_pov_12to19 %>% 
+  mutate(legend_change_pov_gap_12to19 = case_when(
+    change_pov_gap_12to19 <= -0.60 ~ "Gap Narrowed Over 60%",
+    change_pov_gap_12to19 >= 0.00 ~ "Gap Widened",
+    between(change_pov_gap_12to19, -0.60, -0.30) ~ "Gap Narrowed 30%-60%", 
+    between(change_pov_gap_12to19, -0.30, 0.0) ~ "Gap Narrowed 0%-30%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19 <- gap_pov_12to19 %>% 
+  mutate(legend_change_pov_gap_12to19= factor(legend_change_pov_gap_12to19, levels = c("Gap Narrowed Over 60%", "Gap Narrowed 30%-60%", "Gap Narrowed 0%-30%", "Gap Widened")))
+```
+
+*Change in White-Latino Poverty Gap*
+
+Unlike the income gap, the poverty gap is narrowing across the country. In the South and West, the poverty gap narrowed 30% and 39%, respectively, between 2012 and 2019. In the Midwest and Northeast, the gap narrowed 16%. The narrowing gaps are fueled primarily by central and outlying metropolitan areas. In fact, outlying micropolitan areas have maintained a similar poverty gap. Western metros, for example, have closed the poverty gap by 40%. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, REGION) %>% 
+  summarise(
+    change_pov_gap_12to19 = weighted.mean(as.numeric(change_pov_gap_12to19), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = gap_pov_12to19, values = "legend_change_pov_gap_12to19", colour = "grey35")+
+  labs(title = "Change in White-Latino Poverty Gap, 2012-2019",subtitle = "Rate of Change in Gap by County", caption = "Source: U.S. Census Bureau, Census Table B17001I & B17001A", fill = "Change in Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c("Gap Narrowed Over 60%" = "#d95f0e", "Gap Narrowed 30%-60%" = "#fec44f", "Gap Narrowed 0%-30%" = "#fff7bc", "Gap Widened" = "#cbc9e2"))
+```
+
+### Homeownership
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(lat_own_2019$pct_own_lat)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  mutate(legend_own_2019 = case_when(
+    pct_own_lat <= 0.40 ~ "<40%",
+    pct_own_lat >= 0.70 ~ ">70%",
+    between(pct_own_lat, 0.40, 0.55) ~ "40%-55%", 
+    between(pct_own_lat, 0.55, 0.70) ~ "55%-70%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- left_join(lat_own_2019, lat_demog_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  filter(Latino_Pop_2019 >= 1000)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2019 <- lat_own_2019 %>% 
+  mutate(legend_own_2019= factor(legend_own_2019, levels = c(">70%", "55%-70%", "40%-55%", "<40%")))
+```
+
+*Latino Homeownership*
+
+Latino homeownership rates vary significantly by region. In the Midwest and South, 51% and 53.5% of Latinos are homeowners, respectively. In the West, 46.5% are homeowners. Meanwhile, only 32% of Latinos in the Northeast are homeowners. Homeownership also follows patterns of geographic size. Metropolitan areas have low ownership rates while outlying micropolitan areas have 60-70% ownership rates. High homeownership rates, however, are not indicative of quality housing. Ownership rates may be reflective of regional housing markets and affordability crises. But there may be some ethno-racial differences. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, REGION) %>% 
+  summarise(
+    pct_own_lat = weighted.mean(as.numeric(pct_own_lat), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = lat_own_2019, values = "legend_own_2019", colour = "grey35")+
+  labs(title = "Latino Homeownership, 2019",subtitle = "Homeownership Rate by County", caption = "Source: U.S. Census Bureau, Census Table B25003I", fill = "Rate")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+  scale_fill_manual(values = c(">70%" = "#d95f0e", "55%-70%" = "#fe9929", "40%-55%" = "#fed98e", "<40%" = "#ffffd4"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_own_2019 <- get_acs(geography = "county", variables = c("B25003A_001", "B25003A_002"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_own_2019 <- white_own_2019 %>% 
+  rename(total_white_pop_2019 = B25003A_001E, white_own_2019 = B25003A_002E, fips=GEOID) %>% 
+  mutate(pct_white_own_2019 = white_own_2019/total_white_pop_2019) %>% 
+  select(fips, NAME, total_white_pop_2019, white_own_2019, pct_white_own_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2019 <- left_join(lat_own_2019, white_own_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(own_gap_2019 = pct_white_own_2019 - pct_own_lat)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(gap_own_2019$own_gap_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(legend_own_gap_2019 = case_when(
+    own_gap_2019 >= 0.33 ~ ">33%",
+    own_gap_2019 <= 0.0 ~ "No Gap",
+    between(own_gap_2019, 0.11, 0.22) ~ "11%-22%", 
+    between(own_gap_2019, 0.22, 0.33) ~ "22%-33%",
+    between(own_gap_2019, 0, 0.11) ~ "0%-11%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2019 <- gap_own_2019 %>% 
+  mutate(legend_own_gap_2019= factor(legend_own_gap_2019, levels = c("No Gap",  "0%-11%", "11%-22%", "22%-33%", ">33%")))
+```
+
+*White-Latino Homeownership Gap*
+
+The largest homeownership gap is in the New England division of the Northeast, with a 35% ownership gap. The East South Central states of Mississippi, Alabama, Tennessee, and Kentucky have a gap of 28%. On the other hand, the West South Central states of Texas, Oklahoma, Louisiana, and Arkansas have the narrowest gap of 8%. All other divisions have gaps between 13% and 24%. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation, DIVISION) %>% 
+  summarise(
+    own_gap_2019 = weighted.mean(as.numeric(own_gap_2019), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = gap_own_2019, values = "legend_own_gap_2019", colour = "grey35")+
+  labs(title = "Homeownership Gap in the United States, 2019",subtitle = "White-Latino Homeownership Gap by County", caption = "Source: U.S. Census Bureau, Census Table B25003I & B25003A", fill = "Ownership Gap")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("No Gap" = "#2c7fb8", "0%-11%" = "#ffffd4", "11%-22%" = "#fed98e", "22%-33%" = "#fe9929", ">33%" = "#cc4c02"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2012 <- get_acs(geography = "county", variables = c("B25003I_001", "B25003I_002"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_own_2012 <- get_acs(geography = "county", variables = c("B25003A_001", "B25003A_002"), year = 2012, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+lat_own_2012 <- lat_own_2012 %>% 
+  rename(total_lat_pop = B25003I_001E, num_lat_own_2012 = B25003I_002E, fips=GEOID) %>% 
+  mutate(pct_lat_own_2012 = num_lat_own_2012/total_lat_pop) %>% 
+  select(fips, NAME, num_lat_own_2012, pct_lat_own_2012, total_lat_pop)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+white_own_2012 <- white_own_2012 %>% 
+  rename(total_white_pop_2012 = B25003A_001E, num_white_own_2012 = B25003A_002E, fips=GEOID) %>% 
+  mutate(pct_white_own_2012 = num_white_own_2012/total_white_pop_2012) %>% 
+  select(fips, NAME, total_white_pop_2012, num_white_own_2012, pct_white_own_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2012 <- left_join(lat_own_2012, white_own_2012, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_2012 <- gap_own_2012 %>% 
+  mutate(gap_own_2012 = pct_white_own_2012 - pct_lat_own_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- left_join(gap_own_2012, gap_own_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- gap_own_12to19 %>% 
+  mutate(change_gap_own_12to19 = (own_gap_2019 - gap_own_2012)/gap_own_2012)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- left_join(gap_own_12to19, lat_demog_2019, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- gap_own_12to19 %>% 
+  filter(Latino_Pop_2019.x >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(gap_own_12to19$change_gap_own_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- gap_own_12to19 %>% 
+  mutate(legend_own_gap_12to19 = case_when(
+    change_gap_own_12to19 <= -0.40 ~ "Gap Narrowed Over 40%",
+    change_gap_own_12to19 >= 0.0 ~ "Gap Widened",
+    between(change_gap_own_12to19, -0.40, -0.20) ~ "Gap Narrowed 20%-40%", 
+    between(change_gap_own_12to19, -0.20, 0.0) ~ "Gap Narrowed 0%-20%"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_own_12to19 <- gap_own_12to19 %>% 
+  mutate(legend_own_gap_12to19= factor(legend_own_gap_12to19, levels = c("Gap Narrowed Over 40%", "Gap Narrowed 20%-40%", "Gap Narrowed 0%-20%", "Gap Widened")))
+```
+
+*Change in White-Latino Homeownership Gap*
+
+In the Midwest and Northeast, the ownership gap is remaining stable. The South has closed the gap by one-third while the West has closed it by 57%. The gap is widening in Midwestern and Northeastern outlying metros and central micropolitan areas. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    change_gap_own_12to19 = weighted.mean(as.numeric(change_gap_own_12to19), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = gap_own_12to19, values = "legend_own_gap_12to19", colour = "grey35")+
+  labs(title = "Change in Homeownership Gap, 2012 - 2019",subtitle = "Rate of Change in White-Latino Homeownership Gap by County", caption = "Source: U.S. Census Bureau, Census Table B25003I & B25003A", fill = "Share")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("Gap Narrowed Over 40%" = "#d95f0e", "Gap Narrowed 20%-40%" = "#fec44f", "Gap Narrowed 0%-20%" = "#fff7bc", "Gap Widened" = "#cbc9e2"))
+```
+
+
+# **PART III**
+
+## Opportunity Index, Inequality Index, & Opportunity Trends
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- get_acs(geography = "county", variables = c("B03003_003E"), year = 2019, survey = "acs5", output = "wide")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  rename(fips = GEOID, tot_lat_2019 = B03003_003E) %>% 
+  select(fips, NAME, tot_lat_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  filter(tot_lat_2019 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  filter(fips < 72000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, health_gap_12to19, by = "fips") %>% 
+  select(fips, NAME.x.x, tot_lat_2019, pct_uninsured, gap_2019, change_health_gap_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  rename(health_gap_2019 = gap_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, edu_gap_12to19, by = "fips") %>% 
+   select(fips, NAME, tot_lat_2019, pct_uninsured, health_gap_2019, change_health_gap_12to19, pct_lessthanHS, gap_2019, change_edu_gap_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  rename(edu_gap_2019 = gap_2019)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_MHHI_12to19 <- gap_MHHI_12to19 %>% 
+  rename(lat_MHHI_2019 = lat_MHHI)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, gap_MHHI_12to19, by = "fips") %>% 
+  select(fips, NAME, tot_lat_2019, pct_uninsured, health_gap_2019, change_health_gap_12to19, pct_lessthanHS, edu_gap_2019, change_edu_gap_12to19, lat_MHHI_2019, inc_gap_2019, change_MHHI_gap_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+gap_pov_12to19 <- gap_pov_12to19 %>% 
+  rename(pct_pov = pct_poverty)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, gap_pov_12to19, by = "fips") %>% 
+  select(fips, NAME, tot_lat_2019, pct_uninsured, health_gap_2019, change_health_gap_12to19, pct_lessthanHS, edu_gap_2019, change_edu_gap_12to19, lat_MHHI_2019, inc_gap_2019, change_MHHI_gap_12to19, pct_pov, pov_gap_2019, change_pov_gap_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, gap_own_12to19, by = "fips") %>% 
+   select(fips, NAME, tot_lat_2019, pct_uninsured, health_gap_2019, change_health_gap_12to19, pct_lessthanHS, edu_gap_2019, change_edu_gap_12to19, lat_MHHI_2019, inc_gap_2019, change_MHHI_gap_12to19, pct_pov, pov_gap_2019, change_pov_gap_12to19, pct_own_lat, own_gap_2019, change_gap_own_12to19)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- left_join(opp_index, us_counties, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  mutate(REGION = case_when(
+    substr(fips, 0,2) == "09" ~ "Northeast",
+    substr(fips, 0,2) == "23" ~ "Northeast",
+    substr(fips, 0,2) == "25" ~ "Northeast",
+    substr(fips, 0,2) == "33" ~ "Northeast",
+    substr(fips, 0,2) == "44" ~ "Northeast",
+    substr(fips, 0,2) == "50" ~ "Northeast",
+    substr(fips, 0,2) == "34" ~ "Northeast",
+    substr(fips, 0,2) == "36" ~ "Northeast",
+    substr(fips, 0,2) == "42" ~ "Northeast",
+    substr(fips, 0, 2) == "17" ~ "Midwest",
+    substr(fips, 0, 2) == "18" ~ "Midwest",
+    substr(fips, 0, 2) == "26" ~ "Midwest",
+    substr(fips, 0, 2) == "39" ~ "Midwest",
+    substr(fips, 0, 2) == "55" ~ "Midwest",
+    substr(fips, 0, 2) == "19" ~ "Midwest",
+    substr(fips, 0, 2) == "20" ~ "Midwest",
+    substr(fips, 0, 2) == "27" ~ "Midwest",
+    substr(fips, 0, 2) == "29" ~ "Midwest",
+    substr(fips, 0, 2) == "31" ~ "Midwest",
+    substr(fips, 0, 2) == "38" ~ "Midwest",
+    substr(fips, 0, 2) == "46" ~ "Midwest",
+    substr(fips, 0, 2) == "10" ~ "South", 
+    substr(fips, 0, 2) == "11" ~ "South", 
+    substr(fips, 0, 2) == "12" ~ "South", 
+    substr(fips, 0, 2) == "13" ~ "South", 
+    substr(fips, 0, 2) == "24" ~ "South", 
+    substr(fips, 0, 2) == "37" ~ "South", 
+    substr(fips, 0, 2) == "45" ~ "South", 
+    substr(fips, 0, 2) == "51" ~ "South",
+    substr(fips, 0, 2) == "54" ~ "South", 
+    substr(fips, 0, 2) == "01" ~ "South", 
+    substr(fips, 0, 2) == "21" ~ "South", 
+    substr(fips, 0, 2) == "28" ~ "South", 
+    substr(fips, 0, 2) == "47" ~ "South", 
+    substr(fips, 0, 2) == "05" ~ "South", 
+    substr(fips, 0, 2) == "22" ~ "South", 
+    substr(fips, 0, 2) == "40" ~ "South", 
+    substr(fips, 0, 2) == "48" ~ "South", 
+    substr(fips, 0, 2) == "04" ~ "West", 
+    substr(fips, 0, 2) == "08" ~ "West",
+    substr(fips, 0, 2) == "16" ~ "West", 
+    substr(fips, 0, 2) == "30" ~ "West",
+    substr(fips, 0, 2) == "32" ~ "West", 
+    substr(fips, 0, 2) == "35" ~ "West",
+    substr(fips, 0, 2) == "49" ~ "West", 
+    substr(fips, 0, 2) == "56" ~ "West",
+     substr(fips, 0, 2) == "02" ~ "West",
+    substr(fips, 0, 2) == "06" ~ "West", 
+    substr(fips, 0, 2) == "15" ~ "West",
+    substr(fips, 0, 2) == "41" ~ "West", 
+    substr(fips, 0, 2) == "53" ~ "West"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index <- opp_index %>% 
+  mutate(DIVISION = case_when(
+    substr(fips, 0,2) == "09" ~ "New England",
+    substr(fips, 0,2) == "23" ~ "New England",
+    substr(fips, 0,2) == "25" ~ "New England",
+    substr(fips, 0,2) == "33" ~ "New England",
+    substr(fips, 0,2) == "44" ~ "New England",
+    substr(fips, 0,2) == "50" ~ "New England",
+    substr(fips, 0,2) == "34" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "36" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "42" ~ "Middle Atlantic",
+    substr(fips, 0, 2) == "17" ~ "East North Central",
+    substr(fips, 0, 2) == "18" ~ "East North Central",
+    substr(fips, 0, 2) == "26" ~ "East North Central",
+    substr(fips, 0, 2) == "39" ~ "East North Central",
+    substr(fips, 0, 2) == "55" ~ "East North Central",
+    substr(fips, 0, 2) == "19" ~ "West North Central",
+    substr(fips, 0, 2) == "20" ~ "West North Central",
+    substr(fips, 0, 2) == "27" ~ "West North Central",
+    substr(fips, 0, 2) == "29" ~ "West North Central",
+    substr(fips, 0, 2) == "31" ~ "West North Central",
+    substr(fips, 0, 2) == "38" ~ "West North Central",
+    substr(fips, 0, 2) == "46" ~ "West North Central",
+    substr(fips, 0, 2) == "10" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "11" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "12" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "13" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "24" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "37" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "45" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "51" ~ "South Atlantic",
+    substr(fips, 0, 2) == "54" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "01" ~ "East South Central", 
+    substr(fips, 0, 2) == "21" ~ "East South Central", 
+    substr(fips, 0, 2) == "28" ~ "East South Central", 
+    substr(fips, 0, 2) == "47" ~ "East South Central", 
+    substr(fips, 0, 2) == "05" ~ "West South Central", 
+    substr(fips, 0, 2) == "22" ~ "West South Central", 
+    substr(fips, 0, 2) == "40" ~ "West South Central", 
+    substr(fips, 0, 2) == "48" ~ "West South Central", 
+    substr(fips, 0, 2) == "04" ~ "Mountain", 
+    substr(fips, 0, 2) == "08" ~ "Mountain",
+    substr(fips, 0, 2) == "16" ~ "Mountain", 
+    substr(fips, 0, 2) == "30" ~ "Mountain",
+    substr(fips, 0, 2) == "32" ~ "Mountain", 
+    substr(fips, 0, 2) == "35" ~ "Mountain",
+    substr(fips, 0, 2) == "49" ~ "Mountain", 
+    substr(fips, 0, 2) == "56" ~ "Mountain",
+    substr(fips, 0, 2) == "02" ~ "Pacific",
+    substr(fips, 0, 2) == "06" ~ "Pacific", 
+    substr(fips, 0, 2) == "15" ~ "Pacific",
+    substr(fips, 0, 2) == "41" ~ "Pacific", 
+    substr(fips, 0, 2) == "53" ~ "Pacific"))
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index %>% 
+  group_by(REGION) %>%
+  filter(pct_uninsured != 0, pct_lessthanHS != 0, pct_pov != 0, lat_MHHI_2019 != 0) %>% 
+  summarise(
+    pct_own_lat = weighted.mean(as.numeric(pct_own_lat), tot_lat_2019),
+    pct_lessthanHS = weighted.mean(as.numeric(pct_lessthanHS), tot_lat_2019),
+    pct_uninsured = weighted.mean(as.numeric(pct_uninsured), tot_lat_2019),
+    pct_pov = weighted.mean(as.numeric(pct_pov), tot_lat_2019),
+    lat_MHHI_2019 = weighted.mean(as.numeric(lat_MHHI_2019), tot_lat_2019))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index %>% 
+  filter(pct_uninsured != 0, pct_lessthanHS != 0, pct_pov != 0, lat_MHHI_2019 != 0) %>% 
+  summarise(
+    pct_own_lat = weighted.mean(as.numeric(pct_own_lat), tot_lat_2019),
+    pct_lessthanHS = weighted.mean(as.numeric(pct_lessthanHS), tot_lat_2019),
+    pct_uninsured = weighted.mean(as.numeric(pct_uninsured), tot_lat_2019),
+    pct_pov = weighted.mean(as.numeric(pct_pov), tot_lat_2019),
+    lat_MHHI_2019 = weighted.mean(as.numeric(lat_MHHI_2019), tot_lat_2019))
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE} 
+opp_index_scaled <- opp_index %>%
+  mutate_at(vars(pct_uninsured, health_gap_2019, change_health_gap_12to19, pct_lessthanHS, edu_gap_2019, change_edu_gap_12to19, lat_MHHI_2019, inc_gap_2019, change_MHHI_gap_12to19, pct_pov, pov_gap_2019, change_pov_gap_12to19, pct_own_lat, own_gap_2019, change_gap_own_12to19), list(scale=scale))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% mutate(
+  pct_uninsured = pct_uninsured*-1,
+  health_gap_2019 = health_gap_2019*1, 
+  change_health_gap_12to19 = change_health_gap_12to19*-1, 
+  pct_lessthanHS = pct_lessthanHS*-1, 
+  edu_gap_2019 = edu_gap_2019*1, 
+  change_edu_gap_12to19 = change_edu_gap_12to19*-1, 
+  lat_MHHI_2019 = lat_MHHI_2019*1, 
+  inc_gap_2019 = inc_gap_2019*-1, 
+  change_MHHI_gap_12to19 = change_MHHI_gap_12to19*-1, 
+  pct_pov = pct_pov*-1, 
+  pov_gap_2019 = pov_gap_2019*1, 
+  change_pov_gap_12to19 = change_pov_gap_12to19*-1, 
+  pct_own_lat = pct_own_lat*1, 
+  own_gap_2019 = own_gap_2019*-1, 
+  change_gap_own_12to19 = change_gap_own_12to19*-1)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  filter(tot_lat_2019 >= 1000)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled<-opp_index_scaled %>%
+  rowwise() %>% 
+  mutate(
+  existing_conditions_index = sum(pct_lessthanHS_scale, pct_uninsured_scale, pct_pov_scale, pct_own_lat_scale, lat_MHHI_2019_scale, na.rm=TRUE),
+  gap_index = sum(edu_gap_2019_scale, health_gap_2019_scale, pov_gap_2019_scale, own_gap_2019_scale, inc_gap_2019_scale, na.rm=TRUE),
+  change_gap_index = sum(change_health_gap_12to19_scale, change_edu_gap_12to19_scale, change_MHHI_gap_12to19_scale, change_pov_gap_12to19_scale, change_gap_own_12to19_scale, na.rm=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled %>% 
+  select(existing_conditions_index, gap_index, change_gap_index) %>% 
+  summary()
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(scales)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  ungroup() %>% 
+  mutate(existing_conditions_index = rescale(existing_conditions_index, to = c(0,100)),
+         gap_index = rescale(gap_index, to = c(0,100)),
+         change_gap_index = rescale(change_gap_index, to = c(0,100)))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled %>% 
+  select(existing_conditions_index, gap_index, change_gap_index) %>% 
+  summary()
+```
+
+### Opporunity Index, 2019
+
+The Opportunity Index indicates that the lowest levels of opportunity are in the South, particularly the East South Central and West South Central. The Northeast, however, has the highest levels of opportunity, particularly New England.  
+
+Outlying micropolitan and non-CBSA areas have the lowest levels of opportunity. Metros and the suburbs have higher levels of opportunity. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, , eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, DIVISION) %>% 
+  summarise(
+    existing_conditions_index = weighted.mean(as.numeric(existing_conditions_index), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_existing_index = case_when(
+    existing_conditions_index >= 53.39 ~ "4th Quartile",
+    existing_conditions_index <= 34.33 ~ "1st Quartile",
+    between(existing_conditions_index, 34.33, 43.18) ~ "2nd Quartile",
+    between(existing_conditions_index, 43.18, 53.39) ~ "3rd Quartile"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_existing_index= factor(legend_existing_index, levels = c("1st Quartile", "2nd Quartile", "3rd Quartile", "4th Quartile")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "legend_existing_index", colour = "grey35")+
+  labs(title = "Latino Opportunity Map, 2019", fill = "Index Score")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("1st Quartile" = "#2c7bb6", "2nd Quartile" = "#abd9e9", "3rd Quartile" = "#fdae61", "4th Quartile" = "#d7191c"))
+```
+
+### Inequality Index, 2019
+
+The Inequality Index demonstrates the opposite story. The lowest inequality is in the East South Central states of Mississippi, Alabama, Tennessee, and Kentucky. The Northeast has very large inequalities, while the West, Midwest, and South had similar levels of regional inequality. The level of inequality declines the further from metropolitan areas Latinos find themselves in. Metros in the Northeast have the highest levels of inequality. Midwestern and Southern metros have the lowest inequalities. Although Latinos struggle more in rural areas, the inequalities are not as stark.  
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, REGION) %>% 
+  summarise(
+    gap_index = weighted.mean(as.numeric(gap_index), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_gap_index = case_when(
+    gap_index >= 71.85 ~ "4th Quartile",
+    gap_index <= 53.32 ~ "1st Quartile",
+    between(gap_index, 53.32, 63) ~ "2nd Quartile",
+    between(gap_index, 63, 71.85) ~ "3rd Quartile"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_gap_index= factor(legend_gap_index, levels = c("1st Quartile", "2nd Quartile", "3rd Quartile", "4th Quartile")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "legend_gap_index", colour = "grey35")+
+  labs(title = "White-Latino Inequality Index, 2019", fill = "Index Score")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("1st Quartile" = "#2c7bb6", "2nd Quartile" = "#abd9e9", "3rd Quartile" = "#fdae61", "4th Quartile" = "#d7191c"))
+```
+
+### Opportunity Trends, 2012-2019
+
+The Opportunity Trends tells a story of where the trajectory of opportunity is improving or deteriorating. The trajectory is improving in the West but deteriorating in the Midwest and Northeast. Non-CBSA areas are deteriorating the fastest, demonstrating that the trajectory for the most rural Latinos is not positive.
+
+Western and Southern metros are improving the trajectory of opportunity. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(designation, REGION) %>% 
+  summarise(
+    change_gap_index = weighted.mean(as.numeric(change_gap_index), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_change_gap_index = case_when(
+    change_gap_index >= 59.95 ~ "1st Quartile - Widening the Gap",
+    change_gap_index <= 59.73 ~ "4th Quartile - Closing the Gap",
+    between(change_gap_index, 59.73, 59.82) ~ "2nd Quartile",
+    between(change_gap_index, 59.82, 59.95) ~ "3rd Quartile"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(legend_change_gap_index= factor(legend_change_gap_index, levels = c("1st Quartile - Widening the Gap", "2nd Quartile", "3rd Quartile", "4th Quartile - Closing the Gap")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "legend_change_gap_index", colour = "grey35")+
+  labs(title = "Opportunity Trends Index, 2012 - 2019", fill = "Index Score")+
+  theme(legend.position="right", legend.title = element_text(
+    face = "bold",
+    colour = "black",
+    size = 10)
+  )+
+ scale_fill_manual(values = c("1st Quartile - Widening the Gap" = "#d7191c", "2nd Quartile" = "#fdae61", "3rd Quartile" = "#abd9e9", "4th Quartile - Closing the Gap" = "#2c7bb6"))
+```
+
+# **Part IV** 
+
+## Data Analysis
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+CBSA_MetroSA_and_MicroSA <- read_excel("CBSA, MetroSA, and MicroSA.xls")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+MSA_CBSA <- CBSA_MetroSA_and_MicroSA %>% 
+  mutate(designation = paste(`Central/Outlying County`, `Metropolitan/Micropolitan Statistical Area`))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+MSA_CBSA <- MSA_CBSA %>% 
+  mutate(fips = paste0(`FIPS State Code`, `FIPS County Code`))
+```
+
+### Dissimilarity Index
+
+Access to opportunity may be hindered by high levels of segregation. Across the country, White-Latino segregation, as defined by the dissimilarity index, is low to moderate. In the Northeast, however, segregation is high. The Middle Atlantic states of New York, New Jersey, and Pennsylvania have higher levels of segregation than New England. On the other hand, the West North Central states of North Dakota, South Dakota, Nebraska, Kansas, Minnesota, Iowa, and Missouri have the lowest rates of segregation.
+
+Midwestern micropolitan areas have the lowest levels of segregation, while Northeastern metros are very segregated. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, eval = FALSE}
+opp_index_scaled %>% 
+  group_by(REGION, designation) %>% 
+  summarise(
+    wh_diss_score = weighted.mean(as.numeric(wh_diss_score), tot_lat_2019, na.rm=TRUE))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+wh_diss <- read_excel("Dissimilarity Index - MSA.xls") %>% 
+  mutate(CBSA_Code = as.character(CBSA_Code))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+wh_diss <- wh_diss %>% 
+  rename(wh_diss_score = m_dwh_a_10) %>% 
+  mutate(CBSAFP = CBSA_Code) %>% 
+  select(CBSAFP, wh_diss_score, metroname)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- left_join(opp_index_scaled, wh_diss, by = "CBSAFP")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(wh_diss_score_legend = case_when(
+    wh_diss_score >= 60 ~ "High Segregation",
+    wh_diss_score <= 40 ~ "Low Segregation",
+    between(wh_diss_score, 50, 60) ~ "Moderately High Segregation",
+    between(wh_diss_score, 40, 50) ~ "Moderately Low Segregation"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- opp_index_scaled %>% 
+  mutate(wh_diss_score_legend= factor(wh_diss_score_legend, levels = c("Low Segregation", "Moderately Low Segregation", "Moderately High Segregation", "High Segregation")))
+```
+
+```{r}
+plot_usmap(regions = "counties", data = opp_index_scaled, values = "wh_diss_score_legend", colour = "grey35")+
+  labs(title = "White-Latino Dissimilarity Index", subtitle = "Residential Segregation by MSA", caption = "Source: Brown University Spatial Structures in the Social Sciences (S4) Database", fill = "Dissimilarity")+
+  theme(legend.position="right")+
+ scale_fill_manual(values = c("Low Segregation" = "#2c7bb6", "Moderately Low Segregation" = "#abd9e9","Moderately High Segregation" = "#fdae61", "High Segregation" = "#d7191c"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_index_scaled <- left_join(opp_index_scaled, MSA_CBSA, by = "fips")
+```
+
+What can the data we have seen so far tell us about the opportunity landscape for Latinos? For the purposes of this project, I'll be exploring relationships between citizenship and occupation with housing and health insurance gaps by region. I'll also be looking at relationships between Latino populations size and opportunity, inequality, and trends by region.
+
+### Health & Citizenship
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_health <- left_join(health_gap_2019, lat_citizenship, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_health <- left_join(citizenship_health, MSA_CBSA, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_health <- citizenship_health %>% 
+  mutate(REGION = case_when(
+    substr(fips, 0,2) == "09" ~ "Northeast",
+    substr(fips, 0,2) == "23" ~ "Northeast",
+    substr(fips, 0,2) == "25" ~ "Northeast",
+    substr(fips, 0,2) == "33" ~ "Northeast",
+    substr(fips, 0,2) == "44" ~ "Northeast",
+    substr(fips, 0,2) == "50" ~ "Northeast",
+    substr(fips, 0,2) == "34" ~ "Northeast",
+    substr(fips, 0,2) == "36" ~ "Northeast",
+    substr(fips, 0,2) == "42" ~ "Northeast",
+    substr(fips, 0, 2) == "17" ~ "Midwest",
+    substr(fips, 0, 2) == "18" ~ "Midwest",
+    substr(fips, 0, 2) == "26" ~ "Midwest",
+    substr(fips, 0, 2) == "39" ~ "Midwest",
+    substr(fips, 0, 2) == "55" ~ "Midwest",
+    substr(fips, 0, 2) == "19" ~ "Midwest",
+    substr(fips, 0, 2) == "20" ~ "Midwest",
+    substr(fips, 0, 2) == "27" ~ "Midwest",
+    substr(fips, 0, 2) == "29" ~ "Midwest",
+    substr(fips, 0, 2) == "31" ~ "Midwest",
+    substr(fips, 0, 2) == "38" ~ "Midwest",
+    substr(fips, 0, 2) == "46" ~ "Midwest",
+    substr(fips, 0, 2) == "10" ~ "South", 
+    substr(fips, 0, 2) == "11" ~ "South", 
+    substr(fips, 0, 2) == "12" ~ "South", 
+    substr(fips, 0, 2) == "13" ~ "South", 
+    substr(fips, 0, 2) == "24" ~ "South", 
+    substr(fips, 0, 2) == "37" ~ "South", 
+    substr(fips, 0, 2) == "45" ~ "South", 
+    substr(fips, 0, 2) == "51" ~ "South",
+    substr(fips, 0, 2) == "54" ~ "South", 
+    substr(fips, 0, 2) == "01" ~ "South", 
+    substr(fips, 0, 2) == "21" ~ "South", 
+    substr(fips, 0, 2) == "28" ~ "South", 
+    substr(fips, 0, 2) == "47" ~ "South", 
+    substr(fips, 0, 2) == "05" ~ "South", 
+    substr(fips, 0, 2) == "22" ~ "South", 
+    substr(fips, 0, 2) == "40" ~ "South", 
+    substr(fips, 0, 2) == "48" ~ "South", 
+    substr(fips, 0, 2) == "04" ~ "West", 
+    substr(fips, 0, 2) == "08" ~ "West",
+    substr(fips, 0, 2) == "16" ~ "West", 
+    substr(fips, 0, 2) == "30" ~ "West",
+    substr(fips, 0, 2) == "32" ~ "West", 
+    substr(fips, 0, 2) == "35" ~ "West",
+    substr(fips, 0, 2) == "49" ~ "West", 
+    substr(fips, 0, 2) == "56" ~ "West",
+     substr(fips, 0, 2) == "02" ~ "West",
+    substr(fips, 0, 2) == "06" ~ "West", 
+    substr(fips, 0, 2) == "15" ~ "West",
+    substr(fips, 0, 2) == "41" ~ "West", 
+    substr(fips, 0, 2) == "53" ~ "West"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_health <- citizenship_health %>% 
+  mutate(DIVISION = case_when(
+    substr(fips, 0,2) == "09" ~ "New England",
+    substr(fips, 0,2) == "23" ~ "New England",
+    substr(fips, 0,2) == "25" ~ "New England",
+    substr(fips, 0,2) == "33" ~ "New England",
+    substr(fips, 0,2) == "44" ~ "New England",
+    substr(fips, 0,2) == "50" ~ "New England",
+    substr(fips, 0,2) == "34" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "36" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "42" ~ "Middle Atlantic",
+    substr(fips, 0, 2) == "17" ~ "East North Central",
+    substr(fips, 0, 2) == "18" ~ "East North Central",
+    substr(fips, 0, 2) == "26" ~ "East North Central",
+    substr(fips, 0, 2) == "39" ~ "East North Central",
+    substr(fips, 0, 2) == "55" ~ "East North Central",
+    substr(fips, 0, 2) == "19" ~ "West North Central",
+    substr(fips, 0, 2) == "20" ~ "West North Central",
+    substr(fips, 0, 2) == "27" ~ "West North Central",
+    substr(fips, 0, 2) == "29" ~ "West North Central",
+    substr(fips, 0, 2) == "31" ~ "West North Central",
+    substr(fips, 0, 2) == "38" ~ "West North Central",
+    substr(fips, 0, 2) == "46" ~ "West North Central",
+    substr(fips, 0, 2) == "10" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "11" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "12" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "13" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "24" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "37" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "45" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "51" ~ "South Atlantic",
+    substr(fips, 0, 2) == "54" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "01" ~ "East South Central", 
+    substr(fips, 0, 2) == "21" ~ "East South Central", 
+    substr(fips, 0, 2) == "28" ~ "East South Central", 
+    substr(fips, 0, 2) == "47" ~ "East South Central", 
+    substr(fips, 0, 2) == "05" ~ "West South Central", 
+    substr(fips, 0, 2) == "22" ~ "West South Central", 
+    substr(fips, 0, 2) == "40" ~ "West South Central", 
+    substr(fips, 0, 2) == "48" ~ "West South Central", 
+    substr(fips, 0, 2) == "04" ~ "Mountain", 
+    substr(fips, 0, 2) == "08" ~ "Mountain",
+    substr(fips, 0, 2) == "16" ~ "Mountain", 
+    substr(fips, 0, 2) == "30" ~ "Mountain",
+    substr(fips, 0, 2) == "32" ~ "Mountain", 
+    substr(fips, 0, 2) == "35" ~ "Mountain",
+    substr(fips, 0, 2) == "49" ~ "Mountain", 
+    substr(fips, 0, 2) == "56" ~ "Mountain",
+    substr(fips, 0, 2) == "02" ~ "Pacific",
+    substr(fips, 0, 2) == "06" ~ "Pacific", 
+    substr(fips, 0, 2) == "15" ~ "Pacific",
+    substr(fips, 0, 2) == "41" ~ "Pacific", 
+    substr(fips, 0, 2) == "53" ~ "Pacific"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_health <- citizenship_health %>% 
+  mutate(gap_2019 = gap_2019*-1)
+```
+
+There is a strong relationship between Latinos without citizenship and health insurance coverage. The larger the non-citizen population, the larger the White-Latino insurance coverage gaps. Federal health insurance programs such as Medicare, Medicaid, and the Affordable Care Act marketplace require citizenship for access. 
+
+Health insurance should be a right regardless of citizenship status. Eliminating the need for proof of citizenship to register for public health insurance would address the insurance coverage gap and dismantle one of many barriers for opportunity and health. 
+
+```{r}
+ggplot(citizenship_health %>% filter(!is.na(REGION)), aes(x= share_non_citizen, y = gap_2019, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Citizenship Shapes Insurance Coverage", x="Share Non-Citizen", y = "Insurance Coverage Gap, 2019", colour="Census Division", subtitle = "By region and Census division")+theme(strip.background = element_blank())
+```
+
+The insurance coverage gap does not seem to follow patterns of metropolitan area delineations. However, higher non-citizen populations in metropolitan or rural areas alike have higher insurance coverage gaps.  
+
+```{r}
+ggplot(citizenship_health%>% filter(!is.na(REGION)), aes(x= share_non_citizen, y = gap_2019, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Citizenship Shapes Insurance Coverage", x="Share Non-Citizen", y = "Insurance Coverage Gap, 2019", subtitle = "By region and metropolitan delination", colour="Metropolitan Delineation")+theme(strip.background = element_blank())
+```
+
+### Housing & Citizenship
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_housing <- left_join(gap_own_2019, lat_citizenship, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_housing <- left_join(citizenship_housing, MSA_CBSA, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_housing <- citizenship_housing %>% 
+  mutate(REGION = case_when(
+    substr(fips, 0,2) == "09" ~ "Northeast",
+    substr(fips, 0,2) == "23" ~ "Northeast",
+    substr(fips, 0,2) == "25" ~ "Northeast",
+    substr(fips, 0,2) == "33" ~ "Northeast",
+    substr(fips, 0,2) == "44" ~ "Northeast",
+    substr(fips, 0,2) == "50" ~ "Northeast",
+    substr(fips, 0,2) == "34" ~ "Northeast",
+    substr(fips, 0,2) == "36" ~ "Northeast",
+    substr(fips, 0,2) == "42" ~ "Northeast",
+    substr(fips, 0, 2) == "17" ~ "Midwest",
+    substr(fips, 0, 2) == "18" ~ "Midwest",
+    substr(fips, 0, 2) == "26" ~ "Midwest",
+    substr(fips, 0, 2) == "39" ~ "Midwest",
+    substr(fips, 0, 2) == "55" ~ "Midwest",
+    substr(fips, 0, 2) == "19" ~ "Midwest",
+    substr(fips, 0, 2) == "20" ~ "Midwest",
+    substr(fips, 0, 2) == "27" ~ "Midwest",
+    substr(fips, 0, 2) == "29" ~ "Midwest",
+    substr(fips, 0, 2) == "31" ~ "Midwest",
+    substr(fips, 0, 2) == "38" ~ "Midwest",
+    substr(fips, 0, 2) == "46" ~ "Midwest",
+    substr(fips, 0, 2) == "10" ~ "South", 
+    substr(fips, 0, 2) == "11" ~ "South", 
+    substr(fips, 0, 2) == "12" ~ "South", 
+    substr(fips, 0, 2) == "13" ~ "South", 
+    substr(fips, 0, 2) == "24" ~ "South", 
+    substr(fips, 0, 2) == "37" ~ "South", 
+    substr(fips, 0, 2) == "45" ~ "South", 
+    substr(fips, 0, 2) == "51" ~ "South",
+    substr(fips, 0, 2) == "54" ~ "South", 
+    substr(fips, 0, 2) == "01" ~ "South", 
+    substr(fips, 0, 2) == "21" ~ "South", 
+    substr(fips, 0, 2) == "28" ~ "South", 
+    substr(fips, 0, 2) == "47" ~ "South", 
+    substr(fips, 0, 2) == "05" ~ "South", 
+    substr(fips, 0, 2) == "22" ~ "South", 
+    substr(fips, 0, 2) == "40" ~ "South", 
+    substr(fips, 0, 2) == "48" ~ "South", 
+    substr(fips, 0, 2) == "04" ~ "West", 
+    substr(fips, 0, 2) == "08" ~ "West",
+    substr(fips, 0, 2) == "16" ~ "West", 
+    substr(fips, 0, 2) == "30" ~ "West",
+    substr(fips, 0, 2) == "32" ~ "West", 
+    substr(fips, 0, 2) == "35" ~ "West",
+    substr(fips, 0, 2) == "49" ~ "West", 
+    substr(fips, 0, 2) == "56" ~ "West",
+     substr(fips, 0, 2) == "02" ~ "West",
+    substr(fips, 0, 2) == "06" ~ "West", 
+    substr(fips, 0, 2) == "15" ~ "West",
+    substr(fips, 0, 2) == "41" ~ "West", 
+    substr(fips, 0, 2) == "53" ~ "West"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+citizenship_housing <- citizenship_housing %>% 
+  mutate(DIVISION = case_when(
+    substr(fips, 0,2) == "09" ~ "New England",
+    substr(fips, 0,2) == "23" ~ "New England",
+    substr(fips, 0,2) == "25" ~ "New England",
+    substr(fips, 0,2) == "33" ~ "New England",
+    substr(fips, 0,2) == "44" ~ "New England",
+    substr(fips, 0,2) == "50" ~ "New England",
+    substr(fips, 0,2) == "34" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "36" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "42" ~ "Middle Atlantic",
+    substr(fips, 0, 2) == "17" ~ "East North Central",
+    substr(fips, 0, 2) == "18" ~ "East North Central",
+    substr(fips, 0, 2) == "26" ~ "East North Central",
+    substr(fips, 0, 2) == "39" ~ "East North Central",
+    substr(fips, 0, 2) == "55" ~ "East North Central",
+    substr(fips, 0, 2) == "19" ~ "West North Central",
+    substr(fips, 0, 2) == "20" ~ "West North Central",
+    substr(fips, 0, 2) == "27" ~ "West North Central",
+    substr(fips, 0, 2) == "29" ~ "West North Central",
+    substr(fips, 0, 2) == "31" ~ "West North Central",
+    substr(fips, 0, 2) == "38" ~ "West North Central",
+    substr(fips, 0, 2) == "46" ~ "West North Central",
+    substr(fips, 0, 2) == "10" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "11" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "12" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "13" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "24" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "37" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "45" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "51" ~ "South Atlantic",
+    substr(fips, 0, 2) == "54" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "01" ~ "East South Central", 
+    substr(fips, 0, 2) == "21" ~ "East South Central", 
+    substr(fips, 0, 2) == "28" ~ "East South Central", 
+    substr(fips, 0, 2) == "47" ~ "East South Central", 
+    substr(fips, 0, 2) == "05" ~ "West South Central", 
+    substr(fips, 0, 2) == "22" ~ "West South Central", 
+    substr(fips, 0, 2) == "40" ~ "West South Central", 
+    substr(fips, 0, 2) == "48" ~ "West South Central", 
+    substr(fips, 0, 2) == "04" ~ "Mountain", 
+    substr(fips, 0, 2) == "08" ~ "Mountain",
+    substr(fips, 0, 2) == "16" ~ "Mountain", 
+    substr(fips, 0, 2) == "30" ~ "Mountain",
+    substr(fips, 0, 2) == "32" ~ "Mountain", 
+    substr(fips, 0, 2) == "35" ~ "Mountain",
+    substr(fips, 0, 2) == "49" ~ "Mountain", 
+    substr(fips, 0, 2) == "56" ~ "Mountain",
+    substr(fips, 0, 2) == "02" ~ "Pacific",
+    substr(fips, 0, 2) == "06" ~ "Pacific", 
+    substr(fips, 0, 2) == "15" ~ "Pacific",
+    substr(fips, 0, 2) == "41" ~ "Pacific", 
+    substr(fips, 0, 2) == "53" ~ "Pacific"))
+```
+
+There is also a strong relationship between homeownership and citizenship, especially in the South and West, and to a less extent, in the Midwest and Northeast. The Northeast generally has low homeownership regardless of citizenship status. However, an interesting counter-pattern exists in the West North Central division of the Midwest. Citizenship seems to not impact homeownership, and in fact, the homeownership gap gets smaller as non-citizen share of Latino population increases. In the Middle Atlantic, the relationship is flat. Further study is needed to understand why this is the case. 
+
+```{r}
+ggplot(citizenship_housing%>% filter(!is.na(REGION)), aes(x= share_non_citizen, y = own_gap_2019, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Citizenship Shapes Homeownership", x="Share Non-Citizen", y = "Homeownership Gap, 2019", subtitle = "By region and Census division", colour="Census Division")+theme(strip.background = element_blank())
+```
+
+The homeownership gap also does not seem to follow patterns of metropolitan area delineations. 
+
+```{r}
+ggplot(citizenship_housing%>% filter(!is.na(REGION)), aes(x=share_non_citizen, y = own_gap_2019, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Citizenship Shapes Homeownership", x="Share Non-Citizen", y = "Homeownership Gap, 2019", subtitle = "By region and Metropolitan delineation", colour="Metropolitan delineation")+theme(strip.background = element_blank())
+```
+
+### Health and Labor
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_health <- left_join(health_gap_12to19, lat_occupation, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_health <- left_join(labor_health, MSA_CBSA, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_health <- labor_health %>% 
+  mutate(gap_2019 = gap_2019*-1)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_health <- labor_health %>% 
+  mutate(REGION = case_when(
+    substr(fips, 0,2) == "09" ~ "Northeast",
+    substr(fips, 0,2) == "23" ~ "Northeast",
+    substr(fips, 0,2) == "25" ~ "Northeast",
+    substr(fips, 0,2) == "33" ~ "Northeast",
+    substr(fips, 0,2) == "44" ~ "Northeast",
+    substr(fips, 0,2) == "50" ~ "Northeast",
+    substr(fips, 0,2) == "34" ~ "Northeast",
+    substr(fips, 0,2) == "36" ~ "Northeast",
+    substr(fips, 0,2) == "42" ~ "Northeast",
+    substr(fips, 0, 2) == "17" ~ "Midwest",
+    substr(fips, 0, 2) == "18" ~ "Midwest",
+    substr(fips, 0, 2) == "26" ~ "Midwest",
+    substr(fips, 0, 2) == "39" ~ "Midwest",
+    substr(fips, 0, 2) == "55" ~ "Midwest",
+    substr(fips, 0, 2) == "19" ~ "Midwest",
+    substr(fips, 0, 2) == "20" ~ "Midwest",
+    substr(fips, 0, 2) == "27" ~ "Midwest",
+    substr(fips, 0, 2) == "29" ~ "Midwest",
+    substr(fips, 0, 2) == "31" ~ "Midwest",
+    substr(fips, 0, 2) == "38" ~ "Midwest",
+    substr(fips, 0, 2) == "46" ~ "Midwest",
+    substr(fips, 0, 2) == "10" ~ "South", 
+    substr(fips, 0, 2) == "11" ~ "South", 
+    substr(fips, 0, 2) == "12" ~ "South", 
+    substr(fips, 0, 2) == "13" ~ "South", 
+    substr(fips, 0, 2) == "24" ~ "South", 
+    substr(fips, 0, 2) == "37" ~ "South", 
+    substr(fips, 0, 2) == "45" ~ "South", 
+    substr(fips, 0, 2) == "51" ~ "South",
+    substr(fips, 0, 2) == "54" ~ "South", 
+    substr(fips, 0, 2) == "01" ~ "South", 
+    substr(fips, 0, 2) == "21" ~ "South", 
+    substr(fips, 0, 2) == "28" ~ "South", 
+    substr(fips, 0, 2) == "47" ~ "South", 
+    substr(fips, 0, 2) == "05" ~ "South", 
+    substr(fips, 0, 2) == "22" ~ "South", 
+    substr(fips, 0, 2) == "40" ~ "South", 
+    substr(fips, 0, 2) == "48" ~ "South", 
+    substr(fips, 0, 2) == "04" ~ "West", 
+    substr(fips, 0, 2) == "08" ~ "West",
+    substr(fips, 0, 2) == "16" ~ "West", 
+    substr(fips, 0, 2) == "30" ~ "West",
+    substr(fips, 0, 2) == "32" ~ "West", 
+    substr(fips, 0, 2) == "35" ~ "West",
+    substr(fips, 0, 2) == "49" ~ "West", 
+    substr(fips, 0, 2) == "56" ~ "West",
+     substr(fips, 0, 2) == "02" ~ "West",
+    substr(fips, 0, 2) == "06" ~ "West", 
+    substr(fips, 0, 2) == "15" ~ "West",
+    substr(fips, 0, 2) == "41" ~ "West", 
+    substr(fips, 0, 2) == "53" ~ "West"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_health <- labor_health %>% 
+  mutate(DIVISION = case_when(
+    substr(fips, 0,2) == "09" ~ "New England",
+    substr(fips, 0,2) == "23" ~ "New England",
+    substr(fips, 0,2) == "25" ~ "New England",
+    substr(fips, 0,2) == "33" ~ "New England",
+    substr(fips, 0,2) == "44" ~ "New England",
+    substr(fips, 0,2) == "50" ~ "New England",
+    substr(fips, 0,2) == "34" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "36" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "42" ~ "Middle Atlantic",
+    substr(fips, 0, 2) == "17" ~ "East North Central",
+    substr(fips, 0, 2) == "18" ~ "East North Central",
+    substr(fips, 0, 2) == "26" ~ "East North Central",
+    substr(fips, 0, 2) == "39" ~ "East North Central",
+    substr(fips, 0, 2) == "55" ~ "East North Central",
+    substr(fips, 0, 2) == "19" ~ "West North Central",
+    substr(fips, 0, 2) == "20" ~ "West North Central",
+    substr(fips, 0, 2) == "27" ~ "West North Central",
+    substr(fips, 0, 2) == "29" ~ "West North Central",
+    substr(fips, 0, 2) == "31" ~ "West North Central",
+    substr(fips, 0, 2) == "38" ~ "West North Central",
+    substr(fips, 0, 2) == "46" ~ "West North Central",
+    substr(fips, 0, 2) == "10" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "11" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "12" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "13" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "24" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "37" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "45" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "51" ~ "South Atlantic",
+    substr(fips, 0, 2) == "54" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "01" ~ "East South Central", 
+    substr(fips, 0, 2) == "21" ~ "East South Central", 
+    substr(fips, 0, 2) == "28" ~ "East South Central", 
+    substr(fips, 0, 2) == "47" ~ "East South Central", 
+    substr(fips, 0, 2) == "05" ~ "West South Central", 
+    substr(fips, 0, 2) == "22" ~ "West South Central", 
+    substr(fips, 0, 2) == "40" ~ "West South Central", 
+    substr(fips, 0, 2) == "48" ~ "West South Central", 
+    substr(fips, 0, 2) == "04" ~ "Mountain", 
+    substr(fips, 0, 2) == "08" ~ "Mountain",
+    substr(fips, 0, 2) == "16" ~ "Mountain", 
+    substr(fips, 0, 2) == "30" ~ "Mountain",
+    substr(fips, 0, 2) == "32" ~ "Mountain", 
+    substr(fips, 0, 2) == "35" ~ "Mountain",
+    substr(fips, 0, 2) == "49" ~ "Mountain", 
+    substr(fips, 0, 2) == "56" ~ "Mountain",
+    substr(fips, 0, 2) == "02" ~ "Pacific",
+    substr(fips, 0, 2) == "06" ~ "Pacific", 
+    substr(fips, 0, 2) == "15" ~ "Pacific",
+    substr(fips, 0, 2) == "41" ~ "Pacific", 
+    substr(fips, 0, 2) == "53" ~ "Pacific"))
+```
+
+Latino labor occupations also directly shape the extent of the health insurance coverage gap. Across the country, counties with a higher share of Latino blue collar workers have higher coverage gaps. In the Northeast, the gaps are not as severe. This is perhaps the only indicator where Northeastern inequalities are lowest compared to the rest of the country. 
+
+```{r}
+ggplot(labor_health%>% filter(!is.na(REGION)), aes(x= share_blue_collar_jobs, y = gap_2019, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Occupation Shapes Health", x="Share Blue Collar", y = "Health Insurance Coverage Gap, 2019", subtitle = "By region and Census division", colour="Census Division")+theme(strip.background = element_blank())
+```
+
+The health insurance coverage gap is highest in metropolitan areas in all regions. However, rural areas in the South and West have larger gaps than metros in those same regions. 
+
+```{r}
+ggplot(labor_health%>% filter(!is.na(REGION)), aes(x=share_blue_collar_jobs, y = gap_2019, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Occupation Shapes Health", x="Share Blue Collar", y = "Insurance Coverage Gap, 2019", subtitle = "By region and Metropolitan designation", colour="Metropolitan delineation")+theme(strip.background = element_blank())
+```
+
+### Housing & Labor
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_housing <- left_join(gap_own_12to19, lat_occupation, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_housing <- left_join(labor_housing, MSA_CBSA, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_housing <- labor_housing %>% 
+  mutate(REGION = case_when(
+    substr(fips, 0,2) == "09" ~ "Northeast",
+    substr(fips, 0,2) == "23" ~ "Northeast",
+    substr(fips, 0,2) == "25" ~ "Northeast",
+    substr(fips, 0,2) == "33" ~ "Northeast",
+    substr(fips, 0,2) == "44" ~ "Northeast",
+    substr(fips, 0,2) == "50" ~ "Northeast",
+    substr(fips, 0,2) == "34" ~ "Northeast",
+    substr(fips, 0,2) == "36" ~ "Northeast",
+    substr(fips, 0,2) == "42" ~ "Northeast",
+    substr(fips, 0, 2) == "17" ~ "Midwest",
+    substr(fips, 0, 2) == "18" ~ "Midwest",
+    substr(fips, 0, 2) == "26" ~ "Midwest",
+    substr(fips, 0, 2) == "39" ~ "Midwest",
+    substr(fips, 0, 2) == "55" ~ "Midwest",
+    substr(fips, 0, 2) == "19" ~ "Midwest",
+    substr(fips, 0, 2) == "20" ~ "Midwest",
+    substr(fips, 0, 2) == "27" ~ "Midwest",
+    substr(fips, 0, 2) == "29" ~ "Midwest",
+    substr(fips, 0, 2) == "31" ~ "Midwest",
+    substr(fips, 0, 2) == "38" ~ "Midwest",
+    substr(fips, 0, 2) == "46" ~ "Midwest",
+    substr(fips, 0, 2) == "10" ~ "South", 
+    substr(fips, 0, 2) == "11" ~ "South", 
+    substr(fips, 0, 2) == "12" ~ "South", 
+    substr(fips, 0, 2) == "13" ~ "South", 
+    substr(fips, 0, 2) == "24" ~ "South", 
+    substr(fips, 0, 2) == "37" ~ "South", 
+    substr(fips, 0, 2) == "45" ~ "South", 
+    substr(fips, 0, 2) == "51" ~ "South",
+    substr(fips, 0, 2) == "54" ~ "South", 
+    substr(fips, 0, 2) == "01" ~ "South", 
+    substr(fips, 0, 2) == "21" ~ "South", 
+    substr(fips, 0, 2) == "28" ~ "South", 
+    substr(fips, 0, 2) == "47" ~ "South", 
+    substr(fips, 0, 2) == "05" ~ "South", 
+    substr(fips, 0, 2) == "22" ~ "South", 
+    substr(fips, 0, 2) == "40" ~ "South", 
+    substr(fips, 0, 2) == "48" ~ "South", 
+    substr(fips, 0, 2) == "04" ~ "West", 
+    substr(fips, 0, 2) == "08" ~ "West",
+    substr(fips, 0, 2) == "16" ~ "West", 
+    substr(fips, 0, 2) == "30" ~ "West",
+    substr(fips, 0, 2) == "32" ~ "West", 
+    substr(fips, 0, 2) == "35" ~ "West",
+    substr(fips, 0, 2) == "49" ~ "West", 
+    substr(fips, 0, 2) == "56" ~ "West",
+     substr(fips, 0, 2) == "02" ~ "West",
+    substr(fips, 0, 2) == "06" ~ "West", 
+    substr(fips, 0, 2) == "15" ~ "West",
+    substr(fips, 0, 2) == "41" ~ "West", 
+    substr(fips, 0, 2) == "53" ~ "West"))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+labor_housing <- labor_housing %>% 
+  mutate(DIVISION = case_when(
+    substr(fips, 0,2) == "09" ~ "New England",
+    substr(fips, 0,2) == "23" ~ "New England",
+    substr(fips, 0,2) == "25" ~ "New England",
+    substr(fips, 0,2) == "33" ~ "New England",
+    substr(fips, 0,2) == "44" ~ "New England",
+    substr(fips, 0,2) == "50" ~ "New England",
+    substr(fips, 0,2) == "34" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "36" ~ "Middle Atlantic",
+    substr(fips, 0,2) == "42" ~ "Middle Atlantic",
+    substr(fips, 0, 2) == "17" ~ "East North Central",
+    substr(fips, 0, 2) == "18" ~ "East North Central",
+    substr(fips, 0, 2) == "26" ~ "East North Central",
+    substr(fips, 0, 2) == "39" ~ "East North Central",
+    substr(fips, 0, 2) == "55" ~ "East North Central",
+    substr(fips, 0, 2) == "19" ~ "West North Central",
+    substr(fips, 0, 2) == "20" ~ "West North Central",
+    substr(fips, 0, 2) == "27" ~ "West North Central",
+    substr(fips, 0, 2) == "29" ~ "West North Central",
+    substr(fips, 0, 2) == "31" ~ "West North Central",
+    substr(fips, 0, 2) == "38" ~ "West North Central",
+    substr(fips, 0, 2) == "46" ~ "West North Central",
+    substr(fips, 0, 2) == "10" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "11" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "12" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "13" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "24" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "37" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "45" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "51" ~ "South Atlantic",
+    substr(fips, 0, 2) == "54" ~ "South Atlantic", 
+    substr(fips, 0, 2) == "01" ~ "East South Central", 
+    substr(fips, 0, 2) == "21" ~ "East South Central", 
+    substr(fips, 0, 2) == "28" ~ "East South Central", 
+    substr(fips, 0, 2) == "47" ~ "East South Central", 
+    substr(fips, 0, 2) == "05" ~ "West South Central", 
+    substr(fips, 0, 2) == "22" ~ "West South Central", 
+    substr(fips, 0, 2) == "40" ~ "West South Central", 
+    substr(fips, 0, 2) == "48" ~ "West South Central", 
+    substr(fips, 0, 2) == "04" ~ "Mountain", 
+    substr(fips, 0, 2) == "08" ~ "Mountain",
+    substr(fips, 0, 2) == "16" ~ "Mountain", 
+    substr(fips, 0, 2) == "30" ~ "Mountain",
+    substr(fips, 0, 2) == "32" ~ "Mountain", 
+    substr(fips, 0, 2) == "35" ~ "Mountain",
+    substr(fips, 0, 2) == "49" ~ "Mountain", 
+    substr(fips, 0, 2) == "56" ~ "Mountain",
+    substr(fips, 0, 2) == "02" ~ "Pacific",
+    substr(fips, 0, 2) == "06" ~ "Pacific", 
+    substr(fips, 0, 2) == "15" ~ "Pacific",
+    substr(fips, 0, 2) == "41" ~ "Pacific", 
+    substr(fips, 0, 2) == "53" ~ "Pacific"))
+```
+
+The extent to which occupation impacts housing varies by region. In the Midwest, the homeownership gap closes as the share of blue collar Latinos increases. In the Northeast and the West, the ownership gap increases as Latino blue collar workers as a share of the population increases. The South has mixed results. The South Atlantic and West South Central increase ownership gaps with higher Latino blue collar workers, but the relationship is not as strong in the East South Central - a surprising finding. 
+
+```{r}
+ggplot(labor_housing%>% filter(!is.na(REGION)), aes(x=share_blue_collar_jobs, y =own_gap_2019, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Occupation Shapes Homeownership", x="Share Blue Collar", y = "Homeownership Gap, 2019", subtitle = "By region and Census division", colour="Census Division")+theme(strip.background = element_blank())
+```
+
+Homeownership gaps tend to increase in metropolitan and rural areas alike across the country. However, micropolitan counties in the Midwest are the notable exception to that homeownership gap. The gap decreases in strong Latino blue collar counties. 
+
+```{r}
+ggplot(labor_housing%>% filter(!is.na(REGION)), aes(x=share_blue_collar_jobs, y =own_gap_2019, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Occupation Shapes Homeownership", x="Share Blue Collar", y = "Homeownership Gap, 2019", subtitle = "By region and Metropolitan delineation", colour="Metropolitan Delineation")+theme(strip.background = element_blank())
+```
+
+### Opportunity Index
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_analysis <- left_join(lat_demog_2019, opp_index_scaled, by = "fips")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+opp_analysis <- opp_analysis %>% 
+  mutate(existing_conditions_index = (100-existing_conditions_index))
+```
+
+A combined analysis of opportunity in health, housing, education, poverty, and income demonstrates varying conditions across the country. 
+
+In the Midwest, several counties with small Latino populations (less than 25%), enjoy relative high opportunity. However, counties with larger Latino populations (over 25%) have drastically lower opportunity. This could be indicative of land use and settlement patterns in the Midwest. The Dissimilarity Index demonstrated low levels of segregation in Midwestern metros. Small places also have low levels of segregation but this might be because Latinos live in entirely different places altogether. 
+
+In the Northeast, opportunity increases in as the Latino population share increases in New England while a relatively flat relationship exists in the Middle Atlantic. This might be because Latinos in Northeastern metros may have higher health insurance coverage, higher incomes, and higher education rates despite having low homeownership rates and moderately high poverty rates. The question of inequality will be explored below. 
+
+In the South, a relatively flat relationship exists in the West South Central states, primarily due to Texas. The South Atlantic has some counties with relatively high opportunity and high Latino population, but a negative relationship still exists. The East South Central states (MS, AL, KY, and TN) see rapidly dwindling opportunity in counties with larger Latino share. 
+
+In the West, two diverging paths occur between the Pacific and Mountain states. In Pacific states, counties with a high share of Latino populations have lower opportunity, primarily led by rural areas in central California and central Washington. Meanwhile, Mountain states experience higher opportunity as the share of Latino population increases, due in part to New Mexico and southern Colorado.  
+
+```{r}
+ggplot(opp_analysis%>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =existing_conditions_index, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Opportunity Index", x="Latino Population Share", y = "Opportuninty Index Score", subtitle = "By region and Metropolitan designation", colour="Metropolitan Delineation")+theme(strip.background = element_blank())
+```
+
+Opportunity for Latinos is shaped by the size of the region.
+
+In the Midwest, the opportunity index score declines as the Latino population share increases, except in outlying metros, or the suburbs. 
+
+In the Northeast, metros and their suburbs experience a decline in opportunity as the Latino population share increases. However, central micropolitan areas experience a large gain. 
+
+In the South, opportunity generally declines as Latino population share increases. 
+
+In the West, outlying micropolitan and rural areas increase their opportunity as the Latino population increases, again due to New Mexico and southern Colorado. 
+
+```{r}
+ggplot(opp_analysis%>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =existing_conditions_index, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Opportunity Index", x="Latino Population Share", y = "Opportuninty Index Score", subtitle = "By region and Metropolitan designation", colour="Metropolitan Delineation")+theme(strip.background = element_blank())
+```
+
+### Inequality Index
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+inequality_analysis <- left_join(lat_demog_2019, opp_index_scaled, by = "fips")
+```
+
+Inequality remains a very different story than opportunity for Latinos. In the Midwest, inequality generally declines as the Latino population share increases. The extent to which inequality increases in the Northeast as the Latino population increases is staggering, especially with a national comparison. In the South, inequality also increases as the share of Latino population grows while inequality remains flat in the West regardless of population share. 
+
+```{r}
+ggplot(inequality_analysis%>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =gap_index, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Inequality Index", x="Latino Population Share", y = "Inequality Index Score", subtitle = "By region and Census division", colour="Census division")+theme(strip.background = element_blank())
+```
+
+Across the country, the suburbs are places where racial and ethnic segregation or concentration leads to higher inequality. Western and Midwestern metros and micros decrease inequality as population share increases. Central micropolitan areas in the Northeast are perhaps the largest culprit of inequality in the region. In the South, urban and rural areas alike have larger inequalities as the Latino population increases. 
+
+```{r}
+ggplot(inequality_analysis%>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =gap_index, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+labs(title = "Inequality Index", x="Latino Population Share", y = "Inequality Index Score", subtitle = "By region and Metropolitan designation", colour="Metropolitan designation")+theme(strip.background = element_blank())
+```
+
+### Opportunity Trajectories 
+
+The trajectory of opportunity is improving ever so slightly across the Midwest, Northeast, and to some extent in the South and West. However, the West South Central states of Texas, Oklahoma, Louisiana, and Arkansas are leading the way in deterioration. 
+
+```{r}
+ggplot(inequality_analysis%>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =change_gap_index, colour=DIVISION))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+ylim(58,60)+labs(title = "Opportunity Trends Index", x="Latino Population Share", y = "Opportunity Trends Index Score", subtitle = "By region and Census division", colour="Census Division")+theme(strip.background = element_blank())
+```
+
+The trajectory of opportunity is deteriorating in the rural South, the suburbs and small towns in the Northeast, and small towns in the West. 
+
+Meanwhile, the trajectory of opportunity is improving across the Midwest, Northeastern metropolitan areas, and Western metros and suburbs.
+
+Specific sub-regions that require immediate attention from local, state, and federal policymakers, as well as Latino advocates will be highlighted below. 
+
+```{r}
+ggplot(data = inequality_analysis %>% filter(!is.na(REGION)), aes(x=Share_Latino_2019, y =change_gap_index, colour=designation))+geom_point(alpha=.15)+geom_smooth(method="lm", se=FALSE)+facet_wrap(~REGION)+ylim(58,60)+labs(title = "Opportunity Trends Index", x="Latino Population Share", y = "Opportunity Trends Index Score", subtitle = "By region and Metropolitan designation", colour="Metropolitan designation")+theme(strip.background = element_blank())
+```
+
+# **Part V**
+## Policy and Geographic Takeaways
+
+Based on the background information determining Latino citizenship, linguistic isolation, gender ratios, and occupation; the analysis of existing conditions, White-Latino gaps, and changes in gaps on the topics of health insurance coverage, housing, education, income, and poverty; the establishment of an opportunity index, inequality index, and opportunity trends index; and a deeper analysis into regional, sub-regional, and urban-rural relationships between each of these topics, the following topics and locations should be placed in the forefront in discussions of achieving greater Latino Inequality:
+
+### Policies to Pursue
+
+* **Pathway to Citizenship** | Denying citizenship to a large portion of Latinos is fueling inequalities as health insurance and homeownership patterns strongly follow citizenship rates. Creating a path to citizenship would include more Latinos in the healthcare system and create the opportunity for purchasing a home. In addition to a pathway to citizenship, the barriers posed by denied ciitzenship must be dismantled. Non-citizens should be eligible for scholarships, labor protections, health insurance coverage, and other tools of opportunity. 
+
+* **Labor Reforms** | Agricultural, manufacturing, and food industry workers are largely immigrants, especially Latino immigrants. Labor reforms should be secured to ensure adequate pay, employer-based healthcare, employer-subsidized quality housing, options for attending school, and other measures. The COVID-19 pandemic has revealed the significance of essential workers. Although the national narrative has rightly focused on grocery workers and health care workers, the laborers who feed our families and support the American manufacturing sector also merit that status.  
+
+
+### Geographies to Explore
+
+* **Central Washington, southern Idaho, and northern Oregon** | In addition to central California, this is the heart of agricultural Latino laborers that does not receive the attention it needs. California is making progress towards addressing farmworker concerns, but more pressure is needed to ensure Washington, Oregon, and Idaho do what they can to provide farmworkers and their families the access to opportunity they deserve.   
+
+* **Southwest Kansas, central Nebraska, and Iowa** | This region has scattered counties with large Latino concentrations in the meat-packing and poultry industry, agruesome industry. In Champaign, we are familiar with the story of Beardstown, Illinois. However, there are many stories just like Beardstown across this region. In fact, this sub-region is most suitable because White-Latino inequalities are relatively low. Rural social and economic development can ensure Latino access to opportunity whitout the disparities seen in the Northeast.  
+
+* **Northern Alabama, Atlanta hinterlands, and North Carolina** | Although the number of Latinos may be relatively small, they are perhaps the most vulnerable and overlooked. Over a quarter of Latinos in most of these counties are not citizens and subject to extreme exploitation. Admittedly, the political hurdles to pro-immigrant reform are high in this region, so federal policies protecting immigrants and ensuring a pathway to ciitzenship are likely to be more effective here. 
+
+* **Rhode Island, Connecticut, New Jersey, Massachusetts** | Virtually the entire Northeast is a region of massive inequalities between Whites and Latinos that we do not assume. Metros like Hartford, CT and Providence, RI are almost 50% Latino. Additionally, the Dissimilarity Index reveals that the Northeast is the most segregated region in the country. Latinos remain to see social, political, and economic advancements as their population increases. 
+
+### Overarching Thoughts
+
+* **Race- and Ethnicity-Neutral Vulnerability Assessments Do Not Work** | Vulnerability indices such as the CDC Social Vulnerability Index do not adequately capture the vulnerability for different racial and ethnic groups as it may overlook relatively small populations. The geographies explored above reveal that many of the most vulnerable Latinos make up a small minority of the population in many regions. Creating race- and ethnicity-specific vulnerability and opportunity indices could lead to more targeted efforts to relieve inequalities across the country.
+
+* **Indices Should Consider Existing Conditions, Inequalities, and Trajectories** | Understanding existing conditions is only the first step, but it does not delve into regional or local contexts. Inequalities reveal a stronger picture that demonstrates relative needs and inequalities. Lastly, trajectories are needed to understand how the landscape of opportunity is changing with time. For example, the Texas borderlands may have the lowest homeownership gaps in the country, but that advantage is diminshing in some places. Today's celebration may be cause for tomorrow's concern. Additionally, the divergent findings in the Opportunity Index and Inequality Index demonstrate that a struggle to fight inequality is very differnt from one to improve access to opportunity.
+
+* **Different Regions Require Different Strategies and Approaches** | The Northeast may have the most severe inequalities, but they may also be the most inclined to address them. In contrast, addressing labor and citizenship-induced inequalities in the South may be a tougher challenge. Where one region may require local, regional, and state action, other regions may require a federal mandate or incentive. 
+
+
+
+
+
+
